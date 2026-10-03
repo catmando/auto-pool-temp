@@ -1,0 +1,92 @@
+# This file is auto-generated from the current state of the database. Instead
+# of editing this file, please use the migrations feature of Active Record to
+# incrementally modify your database, and then regenerate this schema definition.
+#
+# This file is the source Rails uses to define your schema when running `bin/rails
+# db:schema:load`. When creating a new database, `bin/rails db:schema:load` tends to
+# be faster and is potentially less error prone than running all of your
+# migrations from scratch. Old migrations may fail to apply correctly if those
+# migrations use external dependencies or application code.
+#
+# It's strongly recommended that you check this file into your version control system.
+
+ActiveRecord::Schema[8.1].define(version: 2026_10_03_220000) do
+  create_table "pools", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "name", default: "My Pool", null: false
+    t.string "location_name"
+    t.decimal "latitude", precision: 9, scale: 6
+    t.decimal "longitude", precision: 9, scale: 6
+    t.string "time_zone", default: "UTC", null: false
+    t.decimal "hot_air_temp", precision: 5, scale: 1, default: "95.0", null: false
+    t.decimal "hot_pool_temp", precision: 5, scale: 1, default: "80.0", null: false
+    t.decimal "cold_air_temp", precision: 5, scale: 1, default: "35.0", null: false
+    t.decimal "cold_pool_temp", precision: 5, scale: 1, default: "102.0", null: false
+    t.decimal "heat_rate_per_day", precision: 5, scale: 2, default: "3.0", null: false
+    t.decimal "cool_rate_per_day", precision: 5, scale: 2, default: "2.0", null: false
+    t.string "phone_number"
+    t.integer "checks_per_day", default: 2, null: false
+    t.integer "min_change", default: 1, null: false
+    t.boolean "notifications_enabled", default: true, null: false
+    t.string "strategy", default: "lookahead", null: false
+    t.integer "forecast_days", default: 10, null: false
+    t.integer "assumed_setpoint"
+    t.string "setpoint_source"
+    t.datetime "setpoint_updated_at"
+    t.datetime "last_checked_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["phone_number"], name: "index_pools_on_phone_number"
+    t.index ["user_id"], name: "index_pools_on_user_id", unique: true
+  end
+
+  create_table "recommendations", force: :cascade do |t|
+    t.integer "pool_id", null: false
+    t.string "strategy", null: false
+    t.integer "target_temp", null: false
+    t.decimal "raw_target", precision: 6, scale: 2
+    t.integer "assumed_setpoint"
+    t.text "reason"
+    t.boolean "notified", default: false, null: false
+    t.json "details"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pool_id"], name: "index_recommendations_on_pool_id"
+  end
+
+  create_table "sessions", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "text_messages", force: :cascade do |t|
+    t.integer "pool_id"
+    t.string "direction", null: false
+    t.string "to"
+    t.string "from"
+    t.text "body", null: false
+    t.string "provider_sid"
+    t.string "status"
+    t.text "error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pool_id"], name: "index_text_messages_on_pool_id"
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.string "email_address", null: false
+    t.string "password_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email_address"], name: "index_users_on_email_address", unique: true
+  end
+
+  add_foreign_key "pools", "users"
+  add_foreign_key "recommendations", "pools"
+  add_foreign_key "sessions", "users"
+  add_foreign_key "text_messages", "pools"
+end

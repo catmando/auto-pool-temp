@@ -1,0 +1,22 @@
+<turbo-frame id="location_results">
+  <% if @error %>
+    <p class="error"><%= @error %></p>
+  <% elsif @places.empty? %>
+    <p class="muted">No places found<%= " for “#{@query}”" if @query.present? %>.</p>
+  <% else %>
+    <ul class="places">
+      <% @places.each do |place| %>
+        <li>
+          <button type="button" class="link" data-action="location#pick"
+                  data-location-name-param="<%= place.name %>"
+                  data-location-latitude-param="<%= place.latitude %>"
+                  data-location-longitude-param="<%= place.longitude %>"
+                  data-location-time-zone-param="<%= place.time_zone %>">
+            <%= place.name %>
+          </button>
+          <span class="muted"><%= place.latitude %>, <%= place.longitude %></span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</turbo-frame>

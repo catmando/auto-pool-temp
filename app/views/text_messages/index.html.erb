@@ -1,0 +1,8 @@
+<section class="card">
+  <h1>Text messages</h1>
+  <% if @text_messages.any? %>
+    <%= render "list", text_messages: @text_messages %>
+  <% else %>
+    <p class="muted">No texts yet.</p>
+  <% end %>
+</section>

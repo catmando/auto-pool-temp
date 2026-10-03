@@ -1,0 +1,77 @@
+<% pool = current_pool %>
+<h1>Settings</h1>
+<%= render "shared/errors", record: pool %>
+
+<div data-controller="location">
+  <section class="card">
+    <h2>Location</h2>
+    <div class="inline">
+      <button type="button" class="button secondary" data-action="location#locate">Use my current location</button>
+      <%= form_with url: location_search_path, data: { turbo_frame: "location_results" }, class: "inline" do |f| %>
+        <%= f.search_field :query, placeholder: "City or postal code" %>
+        <%= f.submit "Search", class: "button secondary" %>
+      <% end %>
+    </div>
+    <p class="muted" data-location-target="status"></p>
+    <turbo-frame id="location_results"></turbo-frame>
+  </section>
+
+  <%= form_with model: pool, url: pool_path, method: :patch, class: "stack" do |f| %>
+    <section class="card">
+      <div class="fields">
+        <label>Pool name <%= f.text_field :name %></label>
+        <label>Location <%= f.text_field :location_name, data: { location_target: "name" } %></label>
+        <label>Latitude <%= f.number_field :latitude, step: "any", data: { location_target: "latitude" } %></label>
+        <label>Longitude <%= f.number_field :longitude, step: "any", data: { location_target: "longitude" } %></label>
+        <label>Time zone <%= f.text_field :time_zone, data: { location_target: "timeZone" } %></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Target curve</h2>
+      <p class="muted">Two points define a straight line from air temperature to pool temperature. Air temperature is the forecast averaged over 24 hours. The line keeps going past both points.</p>
+      <div class="fields pairs">
+        <label>Hot day: air (°F) <%= f.number_field :hot_air_temp, step: "any" %></label>
+        <label>Hot day: pool (°F) <%= f.number_field :hot_pool_temp, step: "any" %></label>
+        <label>Cold day: air (°F) <%= f.number_field :cold_air_temp, step: "any" %></label>
+        <label>Cold day: pool (°F) <%= f.number_field :cold_pool_temp, step: "any" %></label>
+      </div>
+      <% if pool.hot_air_temp != pool.cold_air_temp %>
+        <% curve = TargetCurve.for(pool) %>
+        <p class="muted">The pool changes <%= curve.slope.round(2) %>°F for every 1°F change in air. At 65°F air the pool should be <%= degrees(curve.pool_temp_for(65)) %>.</p>
+      <% end %>
+    </section>
+
+    <section class="card">
+      <h2>How fast the pool changes</h2>
+      <div class="fields">
+        <label>Heats up (°F per day) <%= f.number_field :heat_rate_per_day, step: "any", min: 0.1 %></label>
+        <label>Cools down (°F per day) <%= f.number_field :cool_rate_per_day, step: "any", min: 0.1 %></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Text alerts</h2>
+      <div class="fields">
+        <label>Mobile number <%= f.telephone_field :phone_number, placeholder: "+1 555 123 4567" %></label>
+        <label>Checks per day
+          <%= f.select :checks_per_day, Pool::CHECK_HOURS.map { |n, hours| ["#{n} (#{hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.join(', ')})", n] } %>
+        </label>
+        <label>Only text when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
+        <label class="check"><%= f.check_box :notifications_enabled %> Send texts</label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Algorithm</h2>
+      <div class="fields">
+        <label>Strategy
+          <%= f.select :strategy, Recommenders.registry.map { |key, klass| ["#{klass.label}: #{klass.description}", key] } %>
+        </label>
+        <label>Forecast days to consider <%= f.number_field :forecast_days, min: 1, max: 16 %></label>
+      </div>
+    </section>
+
+    <div><%= f.submit "Save settings", class: "button" %></div>
+  <% end %>
+</div>

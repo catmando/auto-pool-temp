@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "Auto Pool Temp" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Auto Pool Temp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <%= link_to "Auto Pool Temp", root_path, class: "brand" %>
+      <% if authenticated? %>
+        <nav>
+          <%= link_to "Dashboard", root_path %>
+          <%= link_to "Settings", edit_pool_path %>
+          <%= link_to "Texts", text_messages_path %>
+          <%= button_to "Sign out", session_path, method: :delete, class: "link" %>
+        </nav>
+      <% end %>
+    </header>
+    <main>
+      <% if notice.present? %><div class="flash notice"><%= notice %></div><% end %>
+      <% if alert.present? %><div class="flash alert"><%= alert %></div><% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

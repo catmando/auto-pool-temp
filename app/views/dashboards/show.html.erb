@@ -1,0 +1,59 @@
+<% pool = current_pool %>
+<div class="grid2">
+  <section class="card">
+    <h2>Heater setting</h2>
+    <p class="big"><%= degrees(pool.assumed_setpoint) %></p>
+    <p class="muted"><%= setpoint_source_label(pool.setpoint_source) %><% if pool.setpoint_updated_at %>, <%= local_time(pool.setpoint_updated_at) %><% end %></p>
+    <%= form_with url: setpoint_path, method: :patch, class: "inline" do |f| %>
+      <label>Actually set to <%= f.number_field :assumed_setpoint, min: 40, max: 110, value: pool.assumed_setpoint, class: "short" %>°F</label>
+      <%= f.submit "Update", class: "button secondary" %>
+    <% end %>
+  </section>
+
+  <section class="card">
+    <h2>Recommendation</h2>
+    <% if @recommendation %>
+      <p class="big"><%= degrees(@recommendation.target_temp) %></p>
+      <p><%= @recommendation.reason %></p>
+      <p class="muted">
+        <%= local_time(@recommendation.created_at) %> · <%= @recommendation.strategy %> ·
+        <%= @recommendation.notified? ? "text sent" : "no text" %>
+      </p>
+    <% else %>
+      <p class="muted">No checks yet.</p>
+    <% end %>
+    <div class="inline">
+      <%= button_to "Preview now", checks_path, params: { notify: "0" }, class: "button secondary" %>
+      <%= button_to "Check & text if needed", checks_path, params: { notify: "1" }, class: "button" %>
+    </div>
+  </section>
+</div>
+
+<% if @recommendation %>
+  <section class="card">
+    <h2>Forecast &amp; plan</h2>
+    <%= forecast_chart(@recommendation) %>
+  </section>
+<% end %>
+
+<section class="card">
+  <h2>Schedule</h2>
+  <p>
+    <%= pool.location_name.presence || "#{pool.latitude}, #{pool.longitude}" %> (<%= pool.time_zone %>).
+    Checks at <%= pool.check_hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.to_sentence %> local time;
+    texts go to <%= pool.phone_number.presence || "no phone number set" %>
+    <%= "(alerts paused)" unless pool.notifications_enabled? %>.
+  </p>
+  <p class="muted">
+    Last scheduled check: <%= local_time(pool.last_checked_at) %>.
+    Twilio: <%= Sms::TwilioSender.configured? ? "configured" : "not configured, so texts are only logged" %>.
+  </p>
+</section>
+
+<% if @text_messages.any? %>
+  <section class="card">
+    <h2>Recent texts</h2>
+    <%= render "text_messages/list", text_messages: @text_messages %>
+    <p><%= link_to "All texts", text_messages_path %></p>
+  </section>
+<% end %>
