@@ -47,9 +47,8 @@ Single user for now; sign-up closes after the first account.
 - **Next deploy target: Fly.io**, once Telegram works locally.
 
 ## Next steps
-1. Finish Telegram: create a bot with @BotFather, add `telegram: bot_token:` to
-   `bin/rails credentials:edit`, run `bin/rails telegram:status`, start `bin/dev`, choose Telegram
-   in Settings, and tap "Connect Telegram".
+1. Done (2026-10-04): Telegram (@mitch_pool_temp_bot) is linked to the owner's chat and is the active channel.
+   Replies (setpoint numbers, STATUS) work through the tunnel.
 2. Deploy to Fly.io: a volume for SQLite in `storage/`, `RAILS_MASTER_KEY` as a secret, Puma with
    `SOLID_QUEUE_IN_PUMA=1`, then `bin/rails notify:webhooks[https://<app>.fly.dev]`.
 3. SMS for real: upgrade Twilio, then register A2P 10DLC (or verify a toll-free number).
