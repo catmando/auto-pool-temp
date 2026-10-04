@@ -1,2 +1,5 @@
 #!/usr/bin/env ruby
+# Runs the web server with the Solid Queue supervisor inside Puma, so the
+# hourly scheduled pool checks run too. One process does everything.
+ENV["SOLID_QUEUE_IN_PUMA"] ||= "1"
 exec "./bin/rails", "server", *ARGV

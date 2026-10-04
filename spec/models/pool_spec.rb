@@ -79,23 +79,41 @@ RSpec.describe Pool do
     end
 
     describe "#due?" do
-      it "is due during a check hour in the pool's time zone" do
-        expect(pool.due?(zone.local(2026, 10, 1, 7, 5))).to be true
-        expect(pool.due?(zone.local(2026, 10, 1, 17, 59))).to be true
+      it "is due for a first check right away" do
+        expect(pool.due?(zone.local(2026, 10, 1, 8, 5))).to be true
       end
 
-      it "is not due outside check hours" do
-        expect(pool.due?(zone.local(2026, 10, 1, 8, 5))).to be false
-      end
-
-      it "is not due twice in the same hour" do
-        pool.update!(last_checked_at: zone.local(2026, 10, 1, 7, 1))
-        expect(pool.due?(zone.local(2026, 10, 1, 7, 30))).to be false
+      it "is due once a check time passes" do
+        pool.update!(last_checked_at: zone.local(2026, 10, 1, 7, 5))
+        expect(pool.due?(zone.local(2026, 10, 1, 16, 59))).to be false
         expect(pool.due?(zone.local(2026, 10, 1, 17, 5))).to be true
+      end
+
+      it "is not due twice for the same check time" do
+        pool.update!(last_checked_at: zone.local(2026, 10, 1, 17, 5))
+        expect(pool.due?(zone.local(2026, 10, 1, 20, 5))).to be false
+      end
+
+      it "catches up on a check missed while asleep" do
+        pool.update!(last_checked_at: zone.local(2026, 9, 30, 17, 5))
+        expect(pool.due?(zone.local(2026, 10, 1, 9, 30))).to be true
+      end
+
+      it "goes by the pool's time zone" do
+        pool.update!(last_checked_at: zone.local(2026, 10, 1, 6, 0))
+        expect(pool.due?(Time.utc(2026, 10, 1, 11, 59))).to be false # 6:59am Chicago
+        expect(pool.due?(Time.utc(2026, 10, 1, 12, 5))).to be true   # 7:05am Chicago
       end
 
       it "is never due without a location" do
         expect(build(:pool, :unlocated).due?(zone.local(2026, 10, 1, 7, 5))).to be false
+      end
+    end
+
+    describe "#last_scheduled_check_at" do
+      it "finds the most recent check time, including yesterday's" do
+        expect(pool.last_scheduled_check_at(zone.local(2026, 10, 1, 12))).to eq(zone.local(2026, 10, 1, 7))
+        expect(pool.last_scheduled_check_at(zone.local(2026, 10, 1, 6))).to eq(zone.local(2026, 9, 30, 17))
       end
     end
 

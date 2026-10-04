@@ -34,12 +34,24 @@ class Pool < ApplicationRecord
 
   def check_hours = CHECK_HOURS.fetch(checks_per_day)
 
-  # Is a scheduled check due at +time+ (and not already done this hour)?
+  # Is a scheduled check due at +time+? True once a scheduled check time has
+  # passed without a check since, so checks missed while the machine was
+  # asleep or offline run at the next opportunity.
   def due?(time = Time.current)
-    local = time.in_time_zone(zone)
-    return false unless located? && check_hours.include?(local.hour)
+    return false unless located?
 
-    last_checked_at.nil? || last_checked_at < local.beginning_of_hour
+    last_checked_at.nil? || last_checked_at < last_scheduled_check_at(time)
+  end
+
+  def last_scheduled_check_at(time)
+    local = time.in_time_zone(zone)
+    [ 0, 1 ].each do |days_back|
+      day = local.to_date - days_back
+      check_hours.reverse_each do |hour|
+        candidate = zone.local(day.year, day.month, day.day, hour)
+        return candidate if candidate <= time
+      end
+    end
   end
 
   def next_check_after(time)

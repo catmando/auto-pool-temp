@@ -27,11 +27,16 @@ Single user for now; sign-up closes after the first account.
   rates, alerts, strategy), dashboard with SVG forecast/plan chart, preview and
   check-now buttons, "my heater is actually at X" form, text log, hourly
   scheduler, Twilio sender, inbound SMS webhook with signature validation.
-- Verified: 179 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 182 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
   A manual run against the live Open-Meteo API (Austin, TX) works and the dashboard renders.
 - **Twilio is not wired up yet.** Without credentials, texts are logged
   (`Sms::LogSender`) and stored in `text_messages` with status `logged`.
-- **Hosting not decided yet.** Options discussed: Render/Fly (~$5–7/mo),
+- **Running locally on the owner's Mac for now** via `bin/dev`, which starts Puma with the Solid Queue
+  supervisor (`SOLID_QUEUE_IN_PUMA=1`), so the hourly scheduler runs in the same process. Development
+  uses a separate queue DB (`storage/development_queue.sqlite3`). Checks missed while the Mac sleeps
+  run at the next hourly tick (`Pool#due?` catches up). Inbound SMS replies need a public URL, so use a
+  tunnel (cloudflared/ngrok) or wait until it is hosted.
+- **Hosting for later.** Options discussed: Render/Fly (~$5–7/mo),
   Kamal/Hatchbox on a VPS (Kamal config is generated), or a home machine.
 
 ## Next steps
@@ -39,7 +44,7 @@ Single user for now; sign-up closes after the first account.
    (ENV or `rails credentials:edit` under `twilio:`). Point the number's "A message
    comes in" webhook (HTTP POST) at `https://<host>/twilio/sms`.
    US numbers need A2P 10DLC registration (or use a toll-free number and verify it).
-2. Choose hosting. The job runner must run all the time, either `bin/jobs` or Puma with
+2. Eventually choose hosting. The job runner must run all the time, either `bin/jobs` or Puma with
    `SOLID_QUEUE_IN_PUMA=1`, so `ScheduledChecksJob` fires hourly.
 3. Tune the algorithm with real data (see below).
 
@@ -79,8 +84,7 @@ Single user for now; sign-up closes after the first account.
 ```sh
 bundle install
 bin/rails db:prepare
-bin/dev                  # http://localhost:3000; first visit goes to sign-up
-bin/jobs                 # optional: runs the recurring scheduler locally
+bin/dev                  # http://localhost:3000 — web UI + scheduler in one process
 bundle exec rspec        # full suite
 bin/ci                   # rubocop + audits + brakeman + rspec
 ```
