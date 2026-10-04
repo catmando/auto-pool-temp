@@ -27,8 +27,11 @@ module Comfort
   # Summary over hourly rows ({ pool:, desired:, smoothed_air: }).
   def score(rows, warm_threshold:)
     values = rows.map { |r| discomfort(pool: r[:pool], ideal: r[:desired], air: r[:smoothed_air], warm_threshold: warm_threshold) }
-    errors = rows.map { |r| (r[:pool] - r[:desired]).abs }
+    offsets = rows.map { |r| r[:pool] - r[:desired] }
+    errors = offsets.map(&:abs)
     {
+      # Which side the water runs on: positive = warmer than ideal on average, negative = cooler.
+      mean_offset: (offsets.sum / offsets.size).round(2),
       # Plain average distance between expected water and ideal, °F.
       mean_error: (errors.sum / errors.size).round(2),
       # The same, with the comfortable direction counting less (what planners minimize).

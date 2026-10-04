@@ -110,3 +110,27 @@ RSpec.describe Recommenders::Search, "the Rochester forecast of Oct 4, 2026" do
     expect(water_on(14, 15)).to be_within(1).of(95)
   end
 end
+
+RSpec.describe Recommenders::Search, "warm-day threshold" do
+  # The owner's test: with the water at 95 on the Rochester Oct 4 forecast (cool
+  # fall days, ~50-65°F air), the usual 80°F threshold makes every day a "cool
+  # day", so the planner leans warm. Dropping the threshold to 40 makes every day
+  # a "warm day", so it should lean cool instead.
+  let(:scenario) { PlannerBenchmark.new.scenarios.find { |s| s.key == "rochester_2026_10_04" } }
+  let(:pool) { PlannerBenchmark.pool }
+
+  def offset(threshold)
+    described_class.new(forecast: scenario.forecast, curve: TargetCurve.for(pool), heat_rate: 3, cool_rate: 2,
+                        now: scenario.now, water_temp: 95, warm_threshold: threshold,
+                        check_times: pool.check_times_between(scenario.now, scenario.forecast.end_time))
+                   .call.details[:comfort][:mean_offset]
+  end
+
+  it "runs warmer than ideal when it's a cool day (threshold 80)" do
+    expect(offset(80)).to be > 0
+  end
+
+  it "runs cooler than ideal when it counts as a warm day (threshold 40)" do
+    expect(offset(40)).to be < 0
+  end
+end

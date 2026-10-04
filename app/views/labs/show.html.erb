@@ -16,7 +16,7 @@
     <p class="muted"><%= scenario.description %></p>
     <div class="table-wrap">
       <table class="scores">
-        <thead><tr><th>Planner</th><th>Avg error</th><th>Avg discomfort</th><th>Worst</th><th>Comfortable hours</th><th>Setting changes</th><th>First setting</th></tr></thead>
+        <thead><tr><th>Planner</th><th>Avg error</th><th>Runs</th><th>Avg discomfort</th><th>Worst</th><th>Comfortable hours</th><th>Setting changes</th><th>First setting</th></tr></thead>
         <tbody>
           <% runs.each do |run| %>
             <% comfort = run.result.details[:comfort] %>
@@ -24,6 +24,7 @@
             <tr class="<%= 'best' if run == best %>">
               <td><%= run.label %><%= " (current)" if run.strategy == current_pool.strategy %></td>
               <td><%= comfort[:mean_error] %>°F</td>
+              <td><%= comfort[:mean_offset].positive? ? "#{comfort[:mean_offset]}°F warm" : "#{comfort[:mean_offset].abs}°F cool" %></td>
               <td><%= comfort[:mean_discomfort] %>°F</td>
               <td><%= comfort[:worst_discomfort] %>°F</td>
               <td><%= (comfort[:comfortable_share] * 100).round %>%</td>
