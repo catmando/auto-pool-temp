@@ -37,20 +37,23 @@ Single user for now; sign-up closes after the first account.
   credentials under `telegram: bot_token:`).
 - The owner's real account exists locally (Rochester, NY; cell +1 585-278-6308, which is verified
   on Twilio as a trial recipient).
-- **Running locally on the owner's Mac for now** via `bin/dev`, which runs foreman with `Procfile.dev`:
-  `web` (Puma + Solid Queue supervisor, so the hourly scheduler runs) and `tunnel` (`bin/tunnel`, which is
-  skipped if cloudflared is missing or `NO_TUNNEL` is set). Port comes from `PORT` (default 3000) and is passed
-  as `APP_PORT`, because foreman rewrites `PORT` for each process. Development
-  uses a separate queue DB (`storage/development_queue.sqlite3`). Checks missed while the Mac sleeps
-  run at the next hourly tick (`Pool#due?` catches up). `bin/tunnel` registers the Twilio and Telegram
-  webhooks (`bin/rails notify:webhooks[url]`) each time it starts.
-- **Next deploy target: Fly.io**, once Telegram works locally.
+- **Deployed on Fly.io (2026-10-04): https://auto-pool-temp.fly.dev**. App `auto-pool-temp` (org: personal),
+  region ewr, one always-on 512 MB machine (`auto_stop_machines = "off"`, because the scheduler lives there),
+  1 GB encrypted volume `pool_data` mounted at `/rails/storage` (all four SQLite DBs; daily snapshots,
+  5 kept). Secret: `RAILS_MASTER_KEY`. Puma runs Solid Queue (`SOLID_QUEUE_IN_PUMA=1`), and the
+  recurring `scheduled_pool_checks` runs **in production only**. Thruster listens on 8080 (non-root).
+  `bin/docker-entrypoint` starts as root, chowns the volume, then drops to the `rails` user via `setpriv`.
+  The Telegram and Twilio webhooks point at Fly.
+- **Local dev:** `bin/dev` (foreman, `Procfile.dev`) runs web only, with no scheduler. `TUNNEL=1 bin/dev` also
+  runs `bin/tunnel`, which **takes the webhooks away from production**. Hand them back with
+  `bin/rails "notify:webhooks[https://auto-pool-temp.fly.dev]"`. The dev queue DB is
+  `storage/development_queue.sqlite3`. Foreman rewrites `PORT` for each process, so the port is passed as `APP_PORT`.
 
 ## Next steps
 1. Done (2026-10-04): Telegram (@mitch_pool_temp_bot) is linked to the owner's chat and is the active channel.
    Replies (setpoint numbers, STATUS) work through the tunnel.
-2. Deploy to Fly.io: a volume for SQLite in `storage/`, `RAILS_MASTER_KEY` as a secret, Puma with
-   `SOLID_QUEUE_IN_PUMA=1`, then `bin/rails notify:webhooks[https://<app>.fly.dev]`.
+2. Done: deployed to Fly. Deploy again with `fly deploy`. Logs: `fly logs`. Console:
+   `fly ssh console -C "bin/rails console"`. The owner still needs to sign up on the live site and reconnect Telegram there.
 3. SMS for real: upgrade Twilio, then register A2P 10DLC (or verify a toll-free number).
    **`config/master.key` is gitignored. Copy it to other machines yourself, or the
    credentials won't decrypt.**

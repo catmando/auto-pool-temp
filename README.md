@@ -17,7 +17,7 @@ your heater's actual setting if it differs from what the app assumed.
 ```sh
 bundle install
 bin/rails db:prepare
-bin/dev          # app + scheduler + SMS reply tunnel (foreman), http://localhost:3000
+bin/dev          # local web app, http://localhost:3000 (scheduler runs in production only)
 ```
 
 Twilio: set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM_NUMBER`. Then point the
@@ -35,3 +35,13 @@ bin/ci           # lint, security audits, and specs
 Recommendation strategies live in `app/models/recommenders/` and are registered in
 `Recommenders.registry`. Pick one per pool in Settings. See `CLAUDE.md` for how
 `lookahead` works.
+
+## Deploy (Fly.io)
+
+```sh
+fly deploy
+```
+
+`fly.toml` describes one always-on machine with SQLite on a volume at `/rails/storage`. The only secret is
+`RAILS_MASTER_KEY`. After the first deploy, point the bots at it:
+`bin/rails "notify:webhooks[https://auto-pool-temp.fly.dev]"`.

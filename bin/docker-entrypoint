@@ -1,5 +1,14 @@
 #!/bin/bash -e
 
+# Fly mounts the storage volume owned by root. When started as root, hand the
+# volume to the rails user, then re-run this script as that user.
+if [ "$(id -u)" = "0" ]; then
+  mkdir -p /rails/storage
+  chown -R rails:rails /rails/storage
+  export HOME=/home/rails
+  exec setpriv --reuid=rails --regid=rails --init-groups "$0" "$@"
+fi
+
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
   ./bin/rails db:prepare

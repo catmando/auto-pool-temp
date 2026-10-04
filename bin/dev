@@ -1,11 +1,16 @@
 #!/usr/bin/env ruby
-# Starts everything with foreman (Procfile.dev):
-#   web    - Rails + the Solid Queue scheduler inside Puma
-#   tunnel - cloudflared tunnel + Twilio webhook registration (bin/tunnel)
+# Starts the app locally with foreman (Procfile.dev):
+#   web    - Rails + the Solid Queue job worker inside Puma
+#   tunnel - (opt-in) cloudflared tunnel + webhook registration (bin/tunnel)
 #
-#   bin/dev                # everything, on port 3000
+#   bin/dev                # web only, on port 3000
 #   PORT=3124 bin/dev      # another port
-#   NO_TUNNEL=1 bin/dev    # skip the tunnel (also skipped if cloudflared isn't installed)
+#   TUNNEL=1 bin/dev       # also take over the Telegram/Twilio webhooks
+#
+# The deployed app (Fly) owns the webhooks and the scheduled checks. TUNNEL=1
+# points the webhooks at this machine instead; afterwards run
+#   bin/rails 'notify:webhooks[https://auto-pool-temp.fly.dev]'
+# to hand them back.
 
 Dir.chdir(File.expand_path("..", __dir__))
 ENV["APP_PORT"] = ENV.fetch("PORT", "3000") # foreman rewrites PORT per process
@@ -15,7 +20,10 @@ unless system("gem list --silent --installed foreman > /dev/null 2>&1") || syste
   system("gem install foreman") || abort("Couldn't install foreman")
 end
 
-tunnel = ENV["NO_TUNNEL"].nil? && system("which cloudflared > /dev/null 2>&1")
-puts "cloudflared not found or NO_TUNNEL set; running without the SMS reply tunnel." unless tunnel
+tunnel = !ENV["TUNNEL"].to_s.empty?
+if tunnel && !system("which cloudflared > /dev/null 2>&1")
+  abort "TUNNEL=1 needs cloudflared: brew install cloudflared"
+end
+puts "Webhooks are being taken over by this machine (TUNNEL=1)." if tunnel
 
 exec "foreman", "start", "-f", "Procfile.dev", "-m", "web=1,tunnel=#{tunnel ? 1 : 0}", *ARGV

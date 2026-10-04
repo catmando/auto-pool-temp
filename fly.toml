@@ -1,0 +1,35 @@
+# Fly.io config. One always-on machine: Puma serves the app and runs the
+# Solid Queue scheduler (hourly pool checks), with SQLite on a volume.
+app = "auto-pool-temp"
+primary_region = "ewr"
+
+[build]
+
+[env]
+  SOLID_QUEUE_IN_PUMA = "1"
+  # Thruster (in front of Puma) listens here; the app runs as a non-root user.
+  HTTP_PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # The scheduler lives in this machine, so it must never sleep.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    path = "/up"
+    timeout = "5s"
+
+[mounts]
+  source = "pool_data"
+  destination = "/rails/storage"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
