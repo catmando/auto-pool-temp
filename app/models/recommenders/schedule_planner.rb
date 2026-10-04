@@ -1,20 +1,24 @@
 module Recommenders
-  # Shared machinery for planners that produce a heater *schedule*: one
-  # setpoint per scheduled check, held until the next check. Subclasses
-  # implement #choose_setpoints (one integer per stage). This class simulates
-  # the water from its current temperature under that schedule, scores comfort,
-  # and explains the first setting.
+  # Shared machinery for planners that produce a *schedule*: at each scheduled
+  # check, a heater setting and (for pools with a cover) whether the cover
+  # should be on, held until the next check. Subclasses implement
+  # #choose_decisions (one Decision per stage). This class simulates the water
+  # from its current temperature under that schedule, scores comfort, and
+  # explains the first decision.
   class SchedulePlanner < Base
     Stage = Data.define(:index, :start, :stop, :at) # hour indexes [start, stop), start time
+    Decision = Data.define(:setpoint, :cover_on)
 
     def call
-      setpoints = merge_ramps(choose_setpoints)
-      rows = simulate(setpoints)
+      decisions = merge_ramps(choose_decisions)
+      rows = simulate(decisions)
+      first = decisions.first
       Result.new(
-        raw_target: setpoints.first.to_f,
-        reason: explain(setpoints, rows),
+        raw_target: first.setpoint.to_f,
+        reason: explain(decisions),
         details: { strategy: strategy_key, series: rows.map { |r| r.merge(t: r[:t].iso8601) },
-                   schedule: stages.zip(setpoints).map { |s, sp| { t: s.at.iso8601, setpoint: sp } },
+                   schedule: stages.zip(decisions).map { |s, d| { t: s.at.iso8601, setpoint: d.setpoint, cover_on: d.cover_on } },
+                   cover_on: has_cover ? first.cover_on : nil,
                    water_now: start_temp.round(1), comfort: Comfort.score(rows, warm_threshold: warm_threshold) }
       )
     end
@@ -23,20 +27,27 @@ module Recommenders
 
     private
 
-    def choose_setpoints
+    def choose_decisions
       raise NotImplementedError
     end
 
-    def physics = @physics ||= PoolPhysics.new(heat_rate: heat_rate, cool_rate: cool_rate, pump: pump)
+    def physics = @physics ||= PoolPhysics.new(heat_rate: heat_rate, pump: pump, environment: environment)
+
+    # Cover states the planner may choose. Pools without a cover are always uncovered.
+    def cover_options = has_cover ? [ true, false ] : [ false ]
 
     # Share of each hour the pump (and so the heater) runs.
     def pump_on = @pump_on ||= hours.map { |t| pump.on_fraction(t) }
 
-    # Water temp after hour +i+ starting from +temp+.
-    def step(temp, setpoint, i) = physics.step(temp, setpoint, pump_on[i])
+    def air = @air ||= hours.map { |t| forecast.temp_at(t) }
 
-    def run_stage(stage, temp, setpoint)
-      (stage.start...stage.stop).each { |i| temp = step(temp, setpoint, i) }
+    # Water temp after hour +i+ starting from +temp+.
+    def step(temp, decision, i)
+      physics.step(temp, decision.setpoint, pump_fraction: pump_on[i], air: air[i], cover_on: decision.cover_on)
+    end
+
+    def run_stage(stage, temp, decision)
+      (stage.start...stage.stop).each { |i| temp = step(temp, decision, i) }
       temp
     end
 
@@ -45,8 +56,6 @@ module Recommenders
     def desired = @desired ||= hours.map { |t| desired_at(t) }
 
     def day_air = @day_air ||= hours.map { |t| smoothed.temp_at(t) }
-
-    def warm?(index) = day_air[index] >= warm_threshold
 
     # Water temperature now: the estimate if we have one, otherwise assume it's at today's ideal.
     def start_temp = water_temp || desired.first
@@ -62,45 +71,50 @@ module Recommenders
       end
     end
 
-    # Pool temp at the end of each hour under +setpoints+ (one per stage).
-    def simulate(setpoints)
+    # Pool temp at the end of each hour under +decisions+ (one per stage).
+    def simulate(decisions)
       temp = start_temp
-      stages.zip(setpoints).flat_map do |stage, setpoint|
+      stages.zip(decisions).flat_map do |stage, decision|
         (stage.start...stage.stop).map do |i|
-          temp = step(temp, setpoint, i)
-          { t: hours[i], air: forecast.temp_at(hours[i]).round(1), smoothed_air: day_air[i].round(1),
-            desired: desired[i].round(1), pool: temp.round(2), setpoint: setpoint, pump: pump_on[i].round(2) }
+          temp = step(temp, decision, i)
+          { t: hours[i], air: air[i].round(1), smoothed_air: day_air[i].round(1), desired: desired[i].round(1),
+            pool: temp.round(2), setpoint: decision.setpoint, cover_on: decision.cover_on, pump: pump_on[i].round(2) }
         end
       end
     end
 
-    # While the water is still heating (or cooling) as fast as it can through a
-    # stage, any setting further along does exactly the same thing. So when the
-    # next stage keeps going the same way, use its setting now: the water is
-    # unchanged, and a multi-day ramp becomes one change instead of one per check.
-    def merge_ramps(setpoints)
-      setpoints = setpoints.dup
-      starts = water_at_stage_starts(setpoints)
-      (setpoints.size - 2).downto(0) do |k|
+    # While the water is still heating as fast as it can through a stage, any
+    # higher setting does exactly the same thing (and while it's cooling, any
+    # lower one). So when the next stage keeps going the same way, use its
+    # setting now: the water is unchanged, and a long ramp becomes one change
+    # instead of one per check.
+    def merge_ramps(decisions)
+      decisions = decisions.dup
+      starts = water_at_stage_starts(decisions)
+      (decisions.size - 2).downto(0) do |k|
+        current, following = decisions[k], decisions[k + 1]
+        next unless current.cover_on == following.cover_on
+
         stage = stages[k]
-        reached = run_stage(stage, starts[k], setpoints[k])
-        heating_flat_out = (reached - run_stage(stage, starts[k], Float::INFINITY)).abs < 0.01
-        cooling_flat_out = (reached - run_stage(stage, starts[k], -Float::INFINITY)).abs < 0.01
-        setpoints[k] = setpoints[k + 1] if (heating_flat_out && setpoints[k + 1] > setpoints[k]) ||
-                                            (cooling_flat_out && setpoints[k + 1] < setpoints[k])
+        reached = run_stage(stage, starts[k], current)
+        heating_flat_out = (reached - run_stage(stage, starts[k], current.with(setpoint: Float::INFINITY))).abs < 0.01
+        cooling_flat_out = (reached - run_stage(stage, starts[k], current.with(setpoint: -Float::INFINITY))).abs < 0.01
+        if (heating_flat_out && following.setpoint > current.setpoint) || (cooling_flat_out && following.setpoint < current.setpoint)
+          decisions[k] = following
+        end
       end
-      setpoints
+      decisions
     end
 
-    def water_at_stage_starts(setpoints)
+    def water_at_stage_starts(decisions)
       temp = start_temp
-      [ temp ] + stages.zip(setpoints).map { |stage, setpoint| temp = run_stage(stage, temp, setpoint) }
+      [ temp ] + stages.zip(decisions).map { |stage, decision| temp = run_stage(stage, temp, decision) }
     end
 
     def stage_ideal(stage) = desired[stage.start...stage.stop].sum / (stage.stop - stage.start)
 
-    def explain(setpoints, _rows)
-      setpoint = setpoints.first
+    def explain(decisions)
+      setpoint = decisions.first.setpoint
       water = start_temp.round
       today = desired.first(24)
       ideal_today = (today.sum / today.size).round
@@ -109,6 +123,7 @@ module Recommenders
         elsif setpoint < start_temp - 0.5 then "let it cool off from about #{water}°F"
         else "hold it at about #{water}°F"
         end
+      action += cover_advice(decisions.first)
 
       # Look up to 4 days ahead for the weather the setting is getting ready for.
       ahead = (24...[ 24 * 5, desired.size ].min).to_a
@@ -121,6 +136,12 @@ module Recommenders
       else
         "Today's average air temp is #{day_air.first.round}°F, so the ideal is about #{ideal_today}°F: #{action}."
       end
+    end
+
+    def cover_advice(decision)
+      return "" unless has_cover
+
+      decision.cover_on ? " (keep the cover on)" : " with the cover off so it cools faster"
     end
   end
 end

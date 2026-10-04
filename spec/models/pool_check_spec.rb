@@ -15,7 +15,8 @@ RSpec.describe PoolCheck do
 
   it "records a recommendation" do
     result = check
-    expect(result.recommendation).to have_attributes(strategy: "search", target_temp: 91, assumed_setpoint: 85)
+    expect(result.recommendation).to have_attributes(strategy: "search", assumed_setpoint: 85)
+    expect(result.recommendation.target_temp).to be_between(91, 92) # ideal 91, a degree more covers pump-off losses
     expect(result.recommendation.reason).to include("91°F")
     expect(result.recommendation.series).not_to be_empty
   end
@@ -30,13 +31,14 @@ RSpec.describe PoolCheck do
       check
       expect(sender.deliveries.size).to eq(1)
       body = sender.deliveries.first[:body]
-      expect(body).to include("set the heater to 91°F", "assuming it's set to 85°F", "reply with the actual setting")
+      expect(body).to include("set the heater to #{pool.recommendations.last.target_temp}°F", "assuming it's set to 85°F",
+                              "reply with the actual setting")
     end
 
     it "assumes the user follows the advice" do
       result = check
       expect(result).to be_notified
-      expect(pool.reload).to have_attributes(assumed_setpoint: 91, setpoint_source: "recommended")
+      expect(pool.reload).to have_attributes(assumed_setpoint: result.recommendation.target_temp, setpoint_source: "recommended")
     end
 
     it "keeps the old assumption if the text fails" do
@@ -49,7 +51,10 @@ RSpec.describe PoolCheck do
   end
 
   context "when nothing needs to change" do
-    before { pool.update!(assumed_setpoint: 92) } # a degree up covers the pump-off dips on a cool day
+    # Settle on whatever the plan says now, so the next check has nothing to change.
+    before do
+      3.times { pool.update!(assumed_setpoint: described_class.call(pool, weather: weather, notify: false).recommendation.target_temp) }
+    end
 
     it "doesn't text" do
       result = check
@@ -161,5 +166,30 @@ RSpec.describe PoolCheck, "planning" do
     pool.update!(assumed_setpoint: nil)
     described_class.call(pool, weather: FakeWeather.new(forecast: snap))
     expect(Sms.sender.last_body).to include("set the heater to", "Coming up:")
+  end
+end
+
+RSpec.describe PoolCheck, "cover advice" do
+  let(:pool) { create(:pool, has_cover: true, cover_on: true, assumed_setpoint: 97) }
+
+  before { pool.record_water_temp!(97) }
+
+  it "tells you to take the cover off when the water needs to cool, and assumes you did" do
+    described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
+    expect(Sms.sender.last_body).to include("and take the cover off")
+    expect(pool.reload.cover_on).to be false
+  end
+
+  it "alerts for a cover change even when the heater setting stays the same" do
+    target = described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)), notify: false).recommendation.target_temp
+    pool.update!(assumed_setpoint: target)
+    expect { described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65))) }
+      .to change { Sms.sender.deliveries.size }.by(1)
+  end
+
+  it "says nothing about a cover the pool doesn't have" do
+    pool.update!(has_cover: false)
+    described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
+    expect(Sms.sender.last_body).not_to include("cover")
   end
 end

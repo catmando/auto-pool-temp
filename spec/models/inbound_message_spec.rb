@@ -163,3 +163,18 @@ RSpec.describe InboundMessage, "water reports" do
     expect(sender.last_body).to include("doesn't look like a water temperature")
   end
 end
+
+RSpec.describe InboundMessage, "cover replies" do
+  let!(:pool) { create(:pool, :telegram, has_cover: true, cover_on: true, assumed_setpoint: 90) }
+  let(:sender) { FakeSmsSender.new }
+
+  def reply(body) = described_class.handle(channel: "telegram", from: "424242", body: body, sender: sender)
+
+  it "records the cover going off and on" do
+    reply("cover off")
+    expect(pool.reload.cover_on).to be false
+    expect(sender.last_body).to eq("Got it, the cover is off.")
+    reply("Cover On")
+    expect(pool.reload.cover_on).to be true
+  end
+end

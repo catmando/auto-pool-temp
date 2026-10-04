@@ -2,7 +2,7 @@
 <h1>Planner lab</h1>
 <p class="muted">
   Every planner run on your settings (heats <%= current_pool.heat_rate_per_hour.to_f %>°F/hour while the pump runs
-  <%= current_pool.pump_schedule.describe %>, cools <%= current_pool.cool_rate_per_hour.to_f %>°F/hour, <%= current_pool.checks_per_day %> checks a day,
+  <%= current_pool.pump_schedule.describe %>, cooling factor <%= current_pool.cooling_factor.to_f %>, <%= current_pool.has_cover? ? "with a cover" : "no cover" %>, <%= current_pool.checks_per_day %> checks a day,
   warm-day threshold <%= current_pool.warm_day_threshold.to_f.round %>°F).
   <strong>Error</strong> is the average °F between the expected water and the ideal. <strong>Discomfort</strong> is the average °F the water is off from ideal in the direction you'd feel:
   too cool on a cool day, or too warm on a warm day. Up to <%= Comfort::LEEWAY.round %>°F the comfortable way counts only a quarter.

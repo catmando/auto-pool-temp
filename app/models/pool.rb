@@ -21,7 +21,8 @@ class Pool < ApplicationRecord
 
   validates :name, presence: true
   validates :hot_air_temp, :hot_pool_temp, :cold_air_temp, :cold_pool_temp, numericality: true
-  validates :heat_rate_per_hour, :cool_rate_per_hour, numericality: { greater_than: 0, less_than_or_equal_to: 10 }
+  validates :heat_rate_per_hour, numericality: { greater_than: 0, less_than_or_equal_to: 10 }
+  validates :cooling_factor, numericality: { greater_than: 0, less_than_or_equal_to: 5 }
   validates :pump_on_1, :pump_off_1, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 04:00" }
   validates :pump_on_2, :pump_off_2, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 16:00" }, allow_blank: true
   validate :second_pump_window_complete
@@ -114,10 +115,28 @@ class Pool < ApplicationRecord
 
   # Best estimate of the actual water temperature at +time+: the last known
   # value, moved toward the heater setpoint at the pool's heat/cool rates.
-  def estimated_water_temp(time = Time.current)
+  # +air+: hourly air temps (a Weather::Forecast) covering the time since the
+  # last reading; defaults to the forecast behind the latest plan.
+  def estimated_water_temp(time = Time.current, air: nil)
     return assumed_setpoint&.to_f if water_temp.nil?
 
-    PoolPhysics.for(self).advance(water_temp.to_f, assumed_setpoint, from: water_temp_at || time, to: time)
+    PoolPhysics.for(self).advance(water_temp.to_f, assumed_setpoint, from: water_temp_at || time, to: time,
+                                  air: air || recent_air, cover_on: cover_on?)
+  end
+
+  # Is the cover on right now (as far as we know)? Pools without one count as uncovered.
+  def cover_on? = has_cover? && cover_on
+
+  # Air temps from the latest plan's forecast, or a mild 65°F if there's no plan yet.
+  def recent_air
+    rows = recommendations.recent.first&.series.to_a.select { |r| r["air"] }
+    return SteadyAir.new(65) if rows.size < 2
+
+    Weather::Forecast.new(rows.map { |r| Weather::Forecast::Point.new(Time.zone.parse(r["t"]), r["air"].to_f) })
+  end
+
+  SteadyAir = Data.define(:temp) do
+    def temp_at(_time) = temp
   end
 
   def record_water_temp!(value, source: "reported", at: Time.current)
@@ -129,16 +148,25 @@ class Pool < ApplicationRecord
   end
 
   # Before the setpoint changes, bank the water temp reached under the old one.
-  def record_setpoint!(value, source:, at: Time.current)
-    estimate = estimated_water_temp(at)
-    attrs = { assumed_setpoint: value, setpoint_source: source, setpoint_updated_at: at }
-    attrs.merge!(water_temp: estimate, water_temp_at: at, water_temp_source: water_temp_at == at ? water_temp_source : "estimated") if estimate
-    update!(attrs)
+  def record_setpoint!(value, source:, at: Time.current, air: nil)
+    update!(banked_water(at, air).merge(assumed_setpoint: value, setpoint_source: source, setpoint_updated_at: at))
+  end
+
+  # Same for the cover: bank the water temp, then record whether it's on.
+  def record_cover!(on, at: Time.current, air: nil)
+    update!(banked_water(at, air).merge(cover_on: on))
   end
 
   def recommender_class = Recommenders.for(strategy)
 
   private
+
+  def banked_water(at, air)
+    estimate = estimated_water_temp(at, air: air)
+    return {} unless estimate
+
+    { water_temp: estimate, water_temp_at: at, water_temp_source: water_temp_at == at ? water_temp_source : "estimated" }
+  end
 
   def reset_phone_verification
     self.phone_verified_at = nil

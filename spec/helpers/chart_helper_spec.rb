@@ -12,15 +12,15 @@ RSpec.describe ChartHelper do
   it "draws expected water, ideal, and air lines, but no heater-setting line" do
     html = helper.plan_chart(rows, zone: zone)
     expect(html).to include("<svg", 'class="line pool"', 'class="line desired"', 'class="line air"',
-                            "Expected water", "Ideal pool", "Heater setting changes")
+                            "Expected water", "Ideal pool", "Heater or cover changes")
     expect(html).not_to include('class="line setpoint"')
     expect(html.scan("<polyline").size).to eq(3)
   end
 
-  it "marks each setting change with its time and temperature" do
+  it "marks each change with a dot on the expected-water line, without labels" do
     html = helper.plan_chart(rows, zone: zone)
     expect(html.scan(/class="setpoint-marker"/).size).to eq(2)
-    expect(html.scan(/class="setpoint-label"[^>]*>([^<]+)</).flatten).to eq([ "12am: 92", "7am: 95" ])
+    expect(html).not_to include("setpoint-label")
   end
 
   it "shades the hours the pump runs" do

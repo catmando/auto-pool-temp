@@ -14,7 +14,14 @@ Single user for now; sign-up closes after the first account.
 - The target pool temp is a straight line from outside air temp. Default anchors are
   95°F air → 80°F pool and 35°F air → 102°F pool. Both anchors are user-adjustable.
   **The line keeps extrapolating past the anchors (no clamping), by owner's choice.**
-- User-set heat-up and cool-down rates, **°F per hour** (since 2026-10-05; the owner's: heat 2, cool 0.1).
+- Heater rate **°F per hour** (the owner's: 2). Heat loss/gain to the air follows the owner's standard model
+  (`PoolEnvironment`, 2026-10-05), times a **cooling factor** (default 1):
+  - cover on: 100°F water at 35°F air loses ~3°F/day, proportional to the water-air gap; air warmer than the
+    water warms it 0.3°F/day per degree of gap
+  - cover off: loses ~6°F/day at 35°F air and ~2°F/day at 90°F (gap term plus constant evaporation)
+- "I have a pool cover" checkbox. With one, the planner decides cover on/off at each check, alerts say
+  "take the cover off" / "put the cover back on", and `pool.cover_on` tracks the assumed state (dashboard
+  button, or reply "cover on/off").
 - **The heater only runs while the pump runs.** One or two daily pump windows (default 4–10am and
   4–10pm). With the pump off the water cools at the cool rate, even below the heater setting.
 - Text via Twilio, 1/2/3 checks per day, **only when the setting should change**.
@@ -31,7 +38,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 358 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 377 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -86,8 +93,9 @@ Single user for now; sign-up closes after the first account.
   picks one with `pool.strategy`. Each planner produces a **heater schedule**: one whole-degree setting
   per scheduled check (1–3/day), held until the next check (`Recommenders::SchedulePlanner`).
   The shared base simulates the water hour by hour from its current temperature (`PoolPhysics.step`,
-  per-hour rates, with `PumpSchedule#on_fraction` giving how much of each hour the pump runs: pump on means
-  heat toward the setting, or cool to it but not below; pump off means cool regardless), scores it with
+  the water always gains/loses heat to the hourly air temp via `PoolEnvironment`, and the heater adds up to
+  heat_rate while the pump runs (`PumpSchedule#on_fraction`), stopping at the setting. Each stage's decision is
+  a setting plus cover on/off (`SchedulePlanner::Decision`). scores it with
   `Comfort`, merges multi-day ramps into one setting change (`merge_ramps`: while the water is moving
   flat out, a further setting does the same thing), and writes the reason text.
   - `search` (default): dynamic programming over water temperature (0.5°F grid) and integer settings,
@@ -109,7 +117,7 @@ Single user for now; sign-up closes after the first account.
     Rochester Oct 4 forecast in `spec/fixtures/forecasts/`, plus the made-up patterns on fixed dates, with the owner's
     settings). The spec fails if the default planner's **mean_error** (average |expected water - ideal|, the owner's
     headline metric) or **mean_discomfort** gets worse than `spec/fixtures/planner_baseline.yml` on any scenario.
-    The baseline was re-recorded for the pump model on 2026-10-05 (scores from different physics aren't
+    The baseline was re-recorded for the pump model, then for the air/cover model, on 2026-10-05 (scores from different physics aren't
     comparable). `bin/rails planner:benchmark` compares; `bin/rails planner:record_baseline` accepts improvements (commit the diff).
     To add a scenario, drop a forecast JSON in `spec/fixtures/forecasts/` and re-record.
   - **Test mode** (`ForecastSnapshot`, `pool.test_snapshot`): plan against a saved forecast with "now" frozen at

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
   create_table "forecast_snapshots", force: :cascade do |t|
     t.integer "pool_id", null: false
     t.string "name", null: false
@@ -65,7 +65,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
     t.string "pump_on_2", default: "16:00"
     t.string "pump_off_2", default: "22:00"
     t.decimal "heat_rate_per_hour", precision: 5, scale: 3, default: "2.0", null: false
-    t.decimal "cool_rate_per_hour", precision: 5, scale: 3, default: "0.1", null: false
+    t.boolean "has_cover", default: false, null: false
+    t.boolean "cover_on", default: true, null: false
+    t.decimal "cooling_factor", precision: 4, scale: 2, default: "1.0", null: false
     t.index ["phone_number"], name: "index_pools_on_phone_number"
     t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
     t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true

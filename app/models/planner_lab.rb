@@ -51,11 +51,10 @@ class PlannerLab
     live = scenario.key == "live"
     snapshot = (pool.forecast_snapshots.find(scenario.key.delete_prefix("snapshot-")) if scenario.key.start_with?("snapshot-"))
     start = live ? now : (snapshot ? snapshot.taken_at : scenario.forecast.start_time)
-    klass.new(forecast: scenario.forecast, curve: TargetCurve.for(pool),
-              heat_rate: pool.heat_rate_per_hour, cool_rate: pool.cool_rate_per_hour, pump: pool.pump_schedule, now: start,
+    klass.new(forecast: scenario.forecast, now: start,
               check_times: pool.check_times_between(start, scenario.forecast.end_time),
-              water_temp: live ? pool.estimated_water_temp(now) : snapshot&.water_temp,
-              warm_threshold: pool.warm_day_threshold).call
+              water_temp: live ? pool.estimated_water_temp(now, air: scenario.forecast) : snapshot&.water_temp,
+              **Recommenders::Base.pool_options(pool)).call
   end
 
   def live_scenario

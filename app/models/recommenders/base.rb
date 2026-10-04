@@ -5,20 +5,26 @@ module Recommenders
     def self.label = name.demodulize.titleize
     def self.description = ""
 
-    attr_reader :forecast, :curve, :heat_rate, :cool_rate, :pump, :now, :next_check_at, :check_times,
-                :water_temp, :warm_threshold
+    attr_reader :forecast, :curve, :heat_rate, :environment, :has_cover, :cover_on, :pump, :now, :next_check_at,
+                :check_times, :water_temp, :warm_threshold
 
-    # heat_rate / cool_rate are °F per hour. pump: when the heater can run (PumpSchedule).
-    # check_times: when the heater setting can next be changed (scheduled checks), after now.
+    # heat_rate: °F per hour the heater adds while the pump runs.
+    # cooling_factor: scales the standard heat loss/gain to the air (PoolEnvironment).
+    # has_cover / cover_on: whether the pool has a cover, and whether it's on now.
+    # pump: when the heater can run (PumpSchedule).
+    # check_times: when the setting can next be changed (scheduled checks), after now.
     # water_temp: best estimate of the actual water temperature now (nil if unknown).
     # warm_threshold: above this air temp a slightly cooler pool feels comfortable;
     #   below it, a slightly warmer one does.
-    def initialize(forecast:, curve:, heat_rate:, cool_rate:, pump: PumpSchedule.always_on, now: Time.current, next_check_at: nil,
+    def initialize(forecast:, curve:, heat_rate:, cooling_factor: 1, has_cover: false, cover_on: true,
+                   pump: PumpSchedule.always_on, now: Time.current, next_check_at: nil,
                    check_times: nil, water_temp: nil, warm_threshold: 80)
       @forecast = forecast
       @curve = curve
       @heat_rate = heat_rate.to_f
-      @cool_rate = cool_rate.to_f
+      @environment = PoolEnvironment.new(factor: cooling_factor)
+      @has_cover = has_cover
+      @cover_on = cover_on
       @pump = pump
       @now = now
       @check_times = check_times || default_check_times(next_check_at || now + 12.hours)
@@ -27,11 +33,16 @@ module Recommenders
       @warm_threshold = warm_threshold.to_f
     end
 
-    def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now))
-      new(forecast: forecast, curve: TargetCurve.for(pool),
-          heat_rate: pool.heat_rate_per_hour, cool_rate: pool.cool_rate_per_hour, pump: pool.pump_schedule, now: now,
-          check_times: pool.check_times_between(now, forecast.end_time),
-          water_temp: water_temp, warm_threshold: pool.warm_day_threshold)
+    # Settings that come from the pool (everything but the forecast, time, and water).
+    def self.pool_options(pool)
+      { curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_hour, cooling_factor: pool.cooling_factor,
+        has_cover: pool.has_cover, cover_on: pool.cover_on?, pump: pool.pump_schedule,
+        warm_threshold: pool.warm_day_threshold }
+    end
+
+    def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now, air: forecast))
+      new(forecast: forecast, now: now, check_times: pool.check_times_between(now, forecast.end_time),
+          water_temp: water_temp, **pool_options(pool))
     end
 
     def call

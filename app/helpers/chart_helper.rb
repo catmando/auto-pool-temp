@@ -3,7 +3,7 @@ module ChartHelper
   POOL_SERIES = [
     { key: "desired", label: "Ideal pool", css: "desired" },
     { key: "pool", label: "Expected water", css: "pool" },
-    { key: "setpoint", label: "Heater setting changes", css: "setpoint" }
+    { key: "setpoint", label: "Heater or cover changes", css: "setpoint" }
   ].freeze
   AIR_SERIES = { key: "smoothed_air", label: "Air (24h avg, right axis)", css: "air" }.freeze
 
@@ -92,28 +92,15 @@ module ChartHelper
     end
   end
 
-  LABEL_WIDTH = 50 # px a "7am: 95" label needs
+  # A dot on the expected-water line wherever the plan changes something
+  # (heater setting or cover), at the moment of the change.
+  def setpoint_markers(rows, times, x, y, _zone)
+    rows.each_with_index.filter_map do |r, i|
+      changed = i.zero? || r["setpoint"] != rows[i - 1]["setpoint"] || r["cover_on"] != rows[i - 1]["cover_on"]
+      next unless changed
 
-  # A dot and "7am: 95" where the heater setting changes. Labels go above the
-  # dot, or below it when that would collide with the previous label; one is
-  # only dropped if neither spot is free.
-  def setpoint_markers(rows, times, x, y, zone)
-    last_above = last_below = -100
-    rows.each_with_index.flat_map do |r, i|
-      next [] unless i.zero? || r["setpoint"] != rows[i - 1]["setpoint"]
-
-      px = x.(times[i])
-      py = y.(r["setpoint"].to_f)
-      parts = [ tag.circle(cx: px.round(1), cy: py.round(1), r: 3.5, class: "setpoint-marker") ]
-      label = "#{Time.zone.parse(r['t'].to_s).in_time_zone(zone).strftime('%-l%P')}: #{r['setpoint'].to_i}"
-      if px - last_above >= LABEL_WIDTH
-        last_above = px
-        parts << tag.text(label, x: px + 5, y: py - 6, class: "setpoint-label")
-      elsif px - last_below >= LABEL_WIDTH
-        last_below = px
-        parts << tag.text(label, x: px + 5, y: py + 14, class: "setpoint-label")
-      end
-      parts
+      water = (i.zero? ? r : rows[i - 1])["pool"].to_f
+      tag.circle(cx: x.(times[i]).round(1), cy: y.(water).round(1), r: 4, class: "setpoint-marker")
     end
   end
 end

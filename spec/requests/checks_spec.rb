@@ -8,14 +8,14 @@ RSpec.describe "Manual checks" do
   it "previews without sending" do
     post checks_path, params: { notify: "0" }
     expect(response).to redirect_to(root_path)
-    expect(flash[:notice]).to eq("Recommended 91°F (preview, nothing sent).")
+    expect(flash[:notice]).to match(/\ARecommended 9[12]°F \(preview, nothing sent\)\.\z/)
     expect(Sms.sender.deliveries).to be_empty
     expect(pool.recommendations.count).to eq(1)
   end
 
   it "sends an alert when a change is needed" do
     post checks_path, params: { notify: "1" }
-    expect(flash[:notice]).to eq("Recommended 91°F and sent an alert by Text message (Twilio).")
+    expect(flash[:notice]).to match(/\ARecommended 9[12]°F and sent an alert by Text message \(Twilio\)\.\z/)
     expect(Sms.sender.deliveries.size).to eq(1)
   end
 

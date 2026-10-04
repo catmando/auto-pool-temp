@@ -4,27 +4,27 @@
 # Checked by spec/models/planner_benchmark_spec.rb; update with `bin/rails planner:record_baseline`.
 search:
   rochester_2026_10_04:
-    mean_error: 0.71
-    mean_discomfort: 0.31
+    mean_error: 0.53
+    mean_discomfort: 0.24
   cold_snap:
-    mean_error: 0.66
-    mean_discomfort: 0.21
+    mean_error: 0.39
+    mean_discomfort: 0.12
   heat_wave:
-    mean_error: 0.58
-    mean_discomfort: 0.34
+    mean_error: 1.56
+    mean_discomfort: 1.41
   choppy:
-    mean_error: 0.6
-    mean_discomfort: 0.2
+    mean_error: 0.46
+    mean_discomfort: 0.16
 follow:
   rochester_2026_10_04:
-    mean_error: 0.69
-    mean_discomfort: 0.36
+    mean_error: 0.51
+    mean_discomfort: 0.27
   cold_snap:
-    mean_error: 0.71
-    mean_discomfort: 0.41
+    mean_error: 0.47
+    mean_discomfort: 0.25
   heat_wave:
-    mean_error: 0.65
-    mean_discomfort: 0.58
+    mean_error: 2.08
+    mean_discomfort: 1.97
   choppy:
-    mean_error: 0.63
-    mean_discomfort: 0.34
+    mean_error: 0.58
+    mean_discomfort: 0.3

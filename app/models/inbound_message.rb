@@ -3,6 +3,7 @@
 #   "123456"                 -> (SMS) phone confirmation code
 #   "84" / "84F" / "set 84"  -> heater is actually at 84°F; re-check and advise
 #   "water 86" / "w 86"      -> the water itself is 86°F; re-plan from there
+#   "cover on" / "cover off" -> the pool cover is now on / off
 #   "status" / "?"           -> what the heater should be set to now
 #   "pause" / "resume"       -> turn alerts off / on (Twilio also handles STOP itself)
 #   anything else            -> help
@@ -71,6 +72,9 @@ class InboundMessage
     end
 
     case @body.downcase
+    when /\Acover\s+(on|off)\z/, /\A(?:\/)?cover(on|off)\z/
+      pool.record_cover!($1 == "on", at: @now)
+      "Got it, the cover is #{$1}."
     when /\A(?:water|pool|w)\s*(?:is|at|=|:)?\s*(\d{2,3}(?:\.\d+)?)\s*°?\s*f?\z/
       water_reported($1.to_f, pool)
     when /\A(?:set\s*(?:to)?\s*)?(\d{2,3})\s*°?\s*f?\z/

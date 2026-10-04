@@ -28,10 +28,11 @@ module ApplicationHelper
     return [] unless rows.first&.key?("setpoint")
 
     rows.each_with_index.filter_map { |row, i|
-      next unless i.zero? || row["setpoint"] != rows[i - 1]["setpoint"]
+      next unless i.zero? || row["setpoint"] != rows[i - 1]["setpoint"] || row["cover_on"] != rows[i - 1]["cover_on"]
 
       before = i.zero? ? row : rows[i - 1]
-      { time: Time.zone.parse(row["t"]), now: i.zero?, setpoint: row["setpoint"], water: before["pool"], ideal: row["desired"] }
+      { time: Time.zone.parse(row["t"]), now: i.zero?, setpoint: row["setpoint"], cover_on: row["cover_on"],
+        water: before["pool"], ideal: row["desired"] }
     }.first(limit)
   end
 

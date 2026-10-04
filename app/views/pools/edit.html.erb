@@ -58,7 +58,7 @@
 
   <section class="card">
     <h2>Pump and heater</h2>
-    <p class="muted">The heater only runs while the pump runs. When the pump is off, the water cools even if it's below the heater setting.</p>
+    <p class="muted">The heater only runs while the pump runs. The water always gains or loses heat to the air: it cools faster when the air is colder, and warms when the air is warmer than the water.</p>
     <div class="fields pairs">
       <label>Pump on <%= f.time_field :pump_on_1 %></label>
       <label>Pump off <%= f.time_field :pump_off_1 %></label>
@@ -67,7 +67,10 @@
     </div>
     <div class="fields">
       <label>Heats up (°F per hour, pump on) <%= f.number_field :heat_rate_per_hour, step: "any", min: 0.01 %></label>
-      <label>Cools down (°F per hour) <%= f.number_field :cool_rate_per_hour, step: "any", min: 0.01 %></label>
+      <label>Cooling factor <%= f.number_field :cooling_factor, step: "any", min: 0.1 %>
+        <span class="hint">1 is standard: covered, a 100°F pool loses about 3°F/day at 35°F air. Uncovered it loses about 6°F/day at 35°F air and 2°F/day at 90°F. Raise it if your pool cools faster than that, lower it if slower.</span>
+      </label>
+      <label class="check"><%= f.check_box :has_cover %> I have a pool cover</label>
     </div>
   </section>
 

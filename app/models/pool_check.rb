@@ -29,7 +29,8 @@ class PoolCheck
         pool.recommender_class.for_pool(pool, forecast: forecast, now: now).call
       end
     previous = pool.assumed_setpoint
-    change = pool.needs_change?(result.target)
+    cover_change = cover_change(result)
+    change = pool.needs_change?(result.target) || !cover_change.nil?
 
     details = result.details.merge(test_snapshot_id: snapshot&.id, test_snapshot_name: snapshot&.name)
     @recommendation = pool.recommendations.create!(
@@ -41,6 +42,7 @@ class PoolCheck
       unless @text_message.failed?
         @recommendation.update!(notified: true)
         pool.record_setpoint!(result.target, source: "recommended", at: now)
+        pool.record_cover!(cover_change, at: now) unless cover_change.nil?
       end
     end
 
@@ -57,11 +59,20 @@ class PoolCheck
       else
         "I don't know its current setting, so reply with it (e.g. \"84\") if it's different."
       end
-    [ "#{pool.name}: set the heater to #{result.target}°F.", result.reason, upcoming_changes(pool, result), assumption ]
+    [ "#{pool.name}: set the heater to #{result.target}°F#{cover_instruction(pool, result)}.", result.reason,
+      upcoming_changes(pool, result), assumption ]
       .compact.join(" ")
   end
 
   # "Coming up: Tue 7am 96°F, Wed 5pm 93°F." from the plan, if it has one.
+  # ", and take the cover off" / ", and put the cover back on" when that should change.
+  def self.cover_instruction(pool, result)
+    wanted = result.details[:cover_on]
+    return "" if wanted.nil? || wanted == pool.cover_on?
+
+    wanted ? ", and put the cover back on" : ", and take the cover off"
+  end
+
   def self.upcoming_changes(pool, result, limit: 3)
     schedule = Array(result.details[:schedule])
     changes = schedule.each_cons(2).filter_map { |a, b| b if b[:setpoint] != a[:setpoint] }.first(limit)
@@ -71,6 +82,12 @@ class PoolCheck
   end
 
   private
+
+  # The cover state the plan wants now, if that's different from now (nil otherwise).
+  def cover_change(result)
+    wanted = result.details[:cover_on]
+    wanted unless wanted.nil? || wanted == pool.cover_on?
+  end
 
   def adopt_time_zone(name)
     return if name.blank? || name == pool.time_zone || ActiveSupport::TimeZone[name].nil?

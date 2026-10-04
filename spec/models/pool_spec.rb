@@ -13,7 +13,7 @@ RSpec.describe Pool do
     it { is_expected.to be_valid }
     it { is_expected.to validate_presence_of(:name) }
     it { is_expected.to validate_numericality_of(:heat_rate_per_hour).is_greater_than(0) }
-    it { is_expected.to validate_numericality_of(:cool_rate_per_hour).is_greater_than(0) }
+    it { is_expected.to validate_numericality_of(:cooling_factor).is_greater_than(0) }
     it { is_expected.to validate_inclusion_of(:checks_per_day).in_array([ 1, 2, 3 ]) }
     it { is_expected.to validate_numericality_of(:forecast_days).only_integer.is_in(1..16) }
     it { is_expected.to validate_numericality_of(:min_change).only_integer.is_greater_than_or_equal_to(1) }
@@ -183,9 +183,11 @@ RSpec.describe Pool, "alert delivery" do
 end
 
 RSpec.describe Pool, "water temperature" do
-  # Heats 2°F/h while the pump runs (4-10am, 4-10pm Chicago time), cools 0.1°F/h otherwise.
+  # Heats 2°F/h while the pump runs (4-10am, 4-10pm Chicago time); loses heat to
+  # 65°F air the rest of the time (no cover, so the uncovered rate).
   let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
-  let(:pool) { create(:pool, assumed_setpoint: 90, heat_rate_per_hour: 2, cool_rate_per_hour: 0.1) }
+  let(:pool) { create(:pool, assumed_setpoint: 90, heat_rate_per_hour: 2) }
+  let(:air) { Pool::SteadyAir.new(65) }
 
   around { |example| travel_to(zone.local(2026, 10, 5, 12)) { example.run } }
 
@@ -194,20 +196,41 @@ RSpec.describe Pool, "water temperature" do
     expect(build(:pool, assumed_setpoint: nil).estimated_water_temp).to be_nil
   end
 
-  it "heats a reading during pump hours and lets it cool the rest of the time" do
+  it "heats a reading during pump hours and loses heat the rest of the time" do
     pool.record_water_temp!(84, at: 1.day.ago)
-    # Noon-4pm cools to 83.6; 4pm pump heats it to 90; 10pm-4am cools to 89.4;
-    # 4am pump back to 90; 10am-noon cools to 89.8.
-    expect(pool.estimated_water_temp).to be_within(0.01).of(89.8)
+    # Reaches 90 in the 4pm pump window, dips overnight, back to 90 at 4am, then
+    # two hours of loss since the 10am pump stop.
+    expect(pool.estimated_water_temp(air: air)).to be_between(89.5, 90)
   end
 
-  it "banks the water temp reached so far when the setting changes" do
+  it "loses heat faster with the cover off than on" do
+    pool.update!(has_cover: true, cover_on: true, assumed_setpoint: 70)
+    pool.record_water_temp!(90, at: 1.day.ago)
+    covered = pool.estimated_water_temp(air: air)
+    pool.update!(cover_on: false)
+    expect(pool.estimated_water_temp(air: air)).to be < covered
+  end
+
+  it "banks the water temp reached so far when the setting or cover changes" do
     pool.record_water_temp!(84, at: 1.day.ago)
-    pool.record_setpoint!(80, source: "user_reported")
-    expect(pool.reload).to have_attributes(water_temp_source: "estimated")
-    expect(pool.water_temp.to_f).to be_within(0.01).of(89.8)
-    # Heater below the water now: it just cools, 0.1°F/h for 24 hours.
-    expect(pool.estimated_water_temp(1.day.from_now)).to be_within(0.01).of(87.4)
+    pool.record_setpoint!(80, source: "user_reported", air: air)
+    banked = pool.reload.water_temp.to_f
+    expect(pool.water_temp_source).to eq("estimated")
+    expect(banked).to be_between(89.5, 90)
+    # Heater below the water now: it just loses heat to the air for a day.
+    expect(pool.estimated_water_temp(1.day.from_now, air: air)).to be_between(banked - 4, banked - 2)
+    pool.update!(has_cover: true)
+    pool.record_cover!(false, air: air)
+    expect(pool.reload.cover_on).to be false
+  end
+
+  it "uses the latest plan's air temperatures by default" do
+    create(:recommendation, pool: pool, details: { "series" => [
+      { "t" => 2.days.ago.iso8601, "air" => 40 }, { "t" => 1.day.from_now.iso8601, "air" => 40 }
+    ] })
+    pool.update!(assumed_setpoint: 70)
+    pool.record_water_temp!(90, at: 1.day.ago)
+    expect(pool.estimated_water_temp).to be < pool.estimated_water_temp(air: air)
   end
 
   it "lists check times over a period" do

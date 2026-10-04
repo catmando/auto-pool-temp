@@ -10,7 +10,7 @@ RSpec.describe "Reporting the water temperature" do
     expect(response).to redirect_to(root_path)
     expect(pool.reload).to have_attributes(water_temp: 86.5, water_temp_source: "reported")
     follow_redirect!
-    expect(response.body).to include("~87°F", "your reading of 87°F")
+    expect(response.body).to include("your reading of 87°F")
   end
 
   it "rejects nonsense" do

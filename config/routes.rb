@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   resource :location_search, only: :create
   resource :setpoint, only: :update
   resource :water_temp, only: :update
+  resource :cover, only: :update
   resource :phone_verification, only: %i[create update]
   resource :telegram_link, only: %i[create destroy]
   resources :checks, only: :create
