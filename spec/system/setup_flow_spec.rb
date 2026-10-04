@@ -44,8 +44,8 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Test mode off")
 
     click_link "Dashboard"
-    fill_in "Measured", with: "86"
-    within(:xpath, "//section[.//h2[text()='Water']]") { click_button "Update" }
+    fill_in "Water is", with: "86"
+    within(:xpath, "//section[.//h2[text()='Water temperature']]") { click_button "Update" }
     expect(page).to have_content("the water is 86°F")
 
     click_link "Lab"

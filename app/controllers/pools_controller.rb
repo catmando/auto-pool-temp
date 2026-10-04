@@ -2,11 +2,19 @@ class PoolsController < ApplicationController
   def edit
   end
 
+  # Settings save as you change them (JSON, from the autosave controller), or
+  # with the Save button.
   def update
-    if current_pool.update(pool_params)
-      redirect_after_save
-    else
-      render :edit, status: :unprocessable_entity
+    saved = current_pool.update(pool_params)
+    respond_to do |format|
+      format.json do
+        if saved
+          render json: { ok: true }
+        else
+          render json: { errors: current_pool.errors.full_messages }, status: :unprocessable_entity
+        end
+      end
+      format.html { saved ? redirect_after_save : render(:edit, status: :unprocessable_entity) }
     end
   end
 

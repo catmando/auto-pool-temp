@@ -33,7 +33,16 @@
 
 <%= render "delivery", pool: pool %>
 
-<%= form_with model: pool, url: pool_path, method: :patch, class: "stack" do |f| %>
+<section class="card" id="plan">
+  <h2>Plan</h2>
+  <p class="muted">Updates as you change the settings below.</p>
+  <turbo-frame id="settings_plan" src="<%= plan_path %>">
+    <p class="muted">Loading the plan…</p>
+  </turbo-frame>
+</section>
+
+<%= form_with model: pool, url: pool_path, method: :patch, class: "stack",
+              data: { controller: "autosave", autosave_frame_value: "settings_plan", action: "change->autosave#save" } do |f| %>
   <section class="card">
     <h2>Ideal pool temperature</h2>
     <p class="muted">Two points define a straight line from the day's average air temperature to the ideal pool temperature. It keeps going past both points.</p>
@@ -79,7 +88,10 @@
     </div>
   </section>
 
-  <div><%= f.submit "Save settings", class: "button" %></div>
+  <div class="inline save-bar">
+    <%= f.submit "Save settings", class: "button" %>
+    <span class="save-status muted" data-autosave-target="status" aria-live="polite">Changes save automatically.</span>
+  </div>
 <% end %>
 
 <section class="card" id="test-mode">

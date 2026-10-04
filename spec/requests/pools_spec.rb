@@ -51,3 +51,40 @@ RSpec.describe "Pool settings" do
     expect(response).to redirect_to(root_path)
   end
 end
+
+RSpec.describe "Pool settings autosave and plan" do
+  let(:pool) { create(:pool, :telegram) }
+
+  before { sign_in_as(pool.user) }
+
+  it "saves a single changed field as JSON" do
+    patch pool_path(format: :json), params: { pool: { warm_day_threshold: 40 } }
+    expect(response.parsed_body).to eq("ok" => true)
+    expect(pool.reload.warm_day_threshold).to eq(40)
+  end
+
+  it "returns validation errors as JSON" do
+    patch pool_path(format: :json), params: { pool: { heat_rate_per_day: 0 } }
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body["errors"]).to include("Heat rate per day must be greater than 0")
+  end
+
+  it "shows the plan as a frame on Settings, re-planned after a change" do
+    get edit_pool_path
+    expect(response.body).to include('turbo-frame id="settings_plan"', "Changes save automatically")
+    get plan_path
+    expect(response.body).to include('<turbo-frame id="settings_plan">', 'class="line setpoint"', "Average error")
+    first = pool.recommendations.recent.first
+    travel 1.minute do
+      patch pool_path(format: :json), params: { pool: { warm_day_threshold: 40 } }
+      get plan_path
+      expect(pool.recommendations.recent.first).not_to eq(first)
+    end
+  end
+
+  it "asks for a location before showing a plan" do
+    pool.update!(latitude: nil, longitude: nil)
+    get plan_path
+    expect(response.body).to include("Set a location")
+  end
+end

@@ -2,21 +2,23 @@
 <% water = pool.estimated_water_temp %>
 <div class="grid3">
   <section class="card">
-    <h2>Heater setting</h2>
+    <h2>Heater is set to</h2>
     <p class="big"><%= degrees(pool.assumed_setpoint) %></p>
     <p class="muted"><%= setpoint_source_label(pool.setpoint_source) %><% if pool.setpoint_updated_at %>, <%= local_time(pool.setpoint_updated_at) %><% end %></p>
+    <p class="hint">What the heater dial says. Used to decide when to alert you; the plan itself starts from the water temperature.</p>
     <%= form_with url: setpoint_path, method: :patch, class: "inline" do |f| %>
-      <label>Actually set to <%= f.number_field :assumed_setpoint, min: 40, max: 110, value: pool.assumed_setpoint, class: "short" %>°F</label>
+      <label>Heater is at <%= f.number_field :assumed_setpoint, min: 40, max: 110, value: pool.assumed_setpoint, class: "short" %>°F</label>
       <%= f.submit "Update", class: "button secondary" %>
     <% end %>
   </section>
 
   <section class="card">
-    <h2>Water</h2>
+    <h2>Water temperature</h2>
     <p class="big"><%= water ? "~#{degrees(water)}" : "—" %></p>
     <p class="muted"><%= water_source_label(pool) %></p>
+    <p class="hint">Measured with a thermometer, or the heater display. The plan starts from this.</p>
     <%= form_with url: water_temp_path, method: :patch, class: "inline" do |f| %>
-      <label>Measured <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
+      <label>Water is <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
       <%= f.submit "Update", class: "button secondary" %>
     <% end %>
   </section>
@@ -42,20 +44,7 @@
 <% if @recommendation %>
   <section class="card">
     <h2>Plan</h2>
-    <%= forecast_chart(@recommendation) %>
-    <% changes = plan_changes(@recommendation) %>
-    <% if changes.any? %>
-      <div class="table-wrap">
-        <table class="scores">
-          <thead><tr><th>When</th><th>Set heater to</th><th>Water then</th><th>Ideal then</th></tr></thead>
-          <tbody>
-            <% changes.each do |c| %>
-              <tr><td><%= c[:now] ? "Now" : local_time(c[:time]) %></td><td><strong><%= c[:setpoint] %>°F</strong></td><td>~<%= degrees(c[:water]) %></td><td><%= degrees(c[:ideal]) %></td></tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    <% end %>
+    <%= render "shared/plan", recommendation: @recommendation %>
   </section>
 <% end %>
 
