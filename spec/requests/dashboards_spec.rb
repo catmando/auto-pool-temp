@@ -11,11 +11,56 @@ RSpec.describe "Dashboard" do
     expect(response).to redirect_to(edit_pool_path)
   end
 
-  it "shows the setting, water estimate, and schedule before any checks" do
+  it "shows the setting, water estimate, plan, and schedule" do
     get root_path
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("88°F", "assumed: you followed the last alert", "~88°F", "assumed to match the heater",
-                                     "No checks yet", "Austin, Texas, US", "alerts go to Telegram")
+                                     "Updated", "Austin, Texas, US", "alerts go to Telegram", "Send alert now if needed")
+    expect(response.body).not_to include("Preview now")
+  end
+
+  describe "keeping the plan current (without sending anything)" do
+    it "makes a plan on first visit" do
+      expect { get root_path }.to change(pool.recommendations, :count).by(1)
+      expect(TelegramBot.sender.deliveries).to be_empty
+    end
+
+    it "reuses a fresh plan" do
+      get root_path
+      expect { get root_path }.not_to change(pool.recommendations, :count)
+    end
+
+    it "re-plans when settings change" do
+      get root_path
+      travel 1.minute do
+        patch pool_path, params: { pool: { heat_rate_per_day: 5 } }
+        expect { get root_path }.to change(pool.recommendations, :count).by(1)
+      end
+    end
+
+    it "re-plans when a water reading comes in" do
+      get root_path
+      travel 1.minute do
+        patch water_temp_path, params: { water_temp: "85" }
+        expect { get root_path }.to change(pool.recommendations, :count).by(1)
+      end
+    end
+
+    it "re-plans when the plan is over an hour old" do
+      get root_path
+      travel 61.minutes do
+        expect { get root_path }.to change(pool.recommendations, :count).by(1)
+      end
+    end
+
+    it "keeps showing the last plan if the forecast can't be fetched" do
+      get root_path
+      Weather.provider.error = Weather::OpenMeteo::Error.new("down")
+      travel 2.hours do
+        get root_path
+        expect(response.body).to include("update the plan: down", "Set heater to")
+      end
+    end
   end
 
   it "warns when Telegram isn't connected" do
@@ -25,7 +70,6 @@ RSpec.describe "Dashboard" do
   end
 
   it "shows the plan chart and a table of upcoming settings" do
-    post checks_path, params: { notify: "0" }
     get root_path
     expect(response.body).to include('class="line setpoint"', "Set heater to", "Water then")
   end

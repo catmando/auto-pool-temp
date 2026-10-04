@@ -34,6 +34,12 @@
       <% end %>
     </header>
     <main>
+      <% if authenticated? && current_pool.test_mode? %>
+        <div class="flash test-mode">
+          <strong>Test mode:</strong> planning with “<%= current_pool.test_snapshot.name %>”. No alerts are sent.
+          <%= button_to "Back to live", test_mode_path, method: :patch, params: { snapshot_id: "" }, class: "link" %>
+        </div>
+      <% end %>
       <% if notice.present? %><div class="flash notice"><%= notice %></div><% end %>
       <% if alert.present? %><div class="flash alert"><%= alert %></div><% end %>
       <%= yield %>

@@ -36,7 +36,7 @@ class PlannerLab
   end
 
   def scenarios
-    @scenarios ||= [ live_scenario, *PATTERNS.map { |key, p| made_up(key, p) } ].compact
+    @scenarios ||= [ live_scenario, *saved_scenarios, *PATTERNS.map { |key, p| made_up(key, p) } ].compact
   end
 
   def runs(scenario)
@@ -49,11 +49,12 @@ class PlannerLab
 
   def run(klass, scenario)
     live = scenario.key == "live"
-    start = live ? now : scenario.forecast.start_time
+    snapshot = (pool.forecast_snapshots.find(scenario.key.delete_prefix("snapshot-")) if scenario.key.start_with?("snapshot-"))
+    start = live ? now : (snapshot ? snapshot.taken_at : scenario.forecast.start_time)
     klass.new(forecast: scenario.forecast, curve: TargetCurve.for(pool),
               heat_rate: pool.heat_rate_per_day, cool_rate: pool.cool_rate_per_day, now: start,
               check_times: pool.check_times_between(start, scenario.forecast.end_time),
-              water_temp: live ? pool.estimated_water_temp(now) : nil,
+              water_temp: live ? pool.estimated_water_temp(now) : snapshot&.water_temp,
               warm_threshold: pool.warm_day_threshold).call
   end
 
@@ -64,6 +65,12 @@ class PlannerLab
     Scenario.new("live", "Your forecast", "#{pool.location_name.presence || 'Your location'}, next #{DAYS} days.", forecast)
   rescue Weather::OpenMeteo::Error
     nil
+  end
+
+  def saved_scenarios
+    pool.forecast_snapshots.recent.map do |s|
+      Scenario.new("snapshot-#{s.id}", "Saved: #{s.name}", "A saved forecast (test data).", s.forecast)
+    end
   end
 
   def made_up(key, pattern)

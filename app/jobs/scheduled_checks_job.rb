@@ -4,7 +4,7 @@ class ScheduledChecksJob < ApplicationJob
   queue_as :default
 
   def perform(now = Time.current)
-    Pool.find_each do |pool|
+    Pool.where(test_snapshot_id: nil).find_each do |pool|
       PoolCheckJob.perform_later(pool) if pool.due?(now)
     end
   end

@@ -5,6 +5,9 @@ class Pool < ApplicationRecord
   FORECAST_DAYS = 16
 
   belongs_to :user
+  # Test mode: plan against this saved forecast instead of the live one (no alerts).
+  belongs_to :test_snapshot, class_name: "ForecastSnapshot", optional: true
+  has_many :forecast_snapshots, dependent: :destroy
   has_many :recommendations, dependent: :destroy
   has_many :text_messages, dependent: :nullify
 
@@ -36,6 +39,8 @@ class Pool < ApplicationRecord
   before_save :reset_phone_verification, if: -> { will_save_change_to_phone_number? && !will_save_change_to_phone_verified_at? }
 
   def located? = latitude.present? && longitude.present?
+
+  def test_mode? = test_snapshot_id.present?
 
   def phone_verified? = phone_number.present? && phone_verified_at.present?
 

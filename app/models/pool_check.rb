@@ -13,21 +13,30 @@ class PoolCheck
     @sender = sender
   end
 
+  # In test mode the saved forecast is used, "now" is when it was saved, and
+  # nothing is ever sent.
   def call
-    raise ArgumentError, "#{pool.name} has no location set" unless pool.located?
+    snapshot = pool.test_snapshot
+    raise ArgumentError, "#{pool.name} has no location set" unless snapshot || pool.located?
 
-    forecast = @weather.forecast(latitude: pool.latitude, longitude: pool.longitude, days: Pool::FORECAST_DAYS)
-    adopt_time_zone(forecast.time_zone)
-
-    result = pool.recommender_class.for_pool(pool, forecast: forecast, now: now).call
+    result =
+      if snapshot
+        pool.recommender_class.for_pool(pool, forecast: snapshot.forecast, now: snapshot.taken_at,
+                                              water_temp: snapshot.water_temp).call
+      else
+        forecast = @weather.forecast(latitude: pool.latitude, longitude: pool.longitude, days: Pool::FORECAST_DAYS)
+        adopt_time_zone(forecast.time_zone)
+        pool.recommender_class.for_pool(pool, forecast: forecast, now: now).call
+      end
     previous = pool.assumed_setpoint
     change = pool.needs_change?(result.target)
 
+    details = result.details.merge(test_snapshot_id: snapshot&.id, test_snapshot_name: snapshot&.name)
     @recommendation = pool.recommendations.create!(
       strategy: pool.strategy, target_temp: result.target, raw_target: result.raw_target,
-      assumed_setpoint: previous, reason: result.reason, details: result.details)
+      assumed_setpoint: previous, reason: result.reason, details: details)
 
-    if @notify && change && pool.notifiable?
+    if @notify && !snapshot && change && pool.notifiable?
       @text_message = TextMessage.deliver(pool: pool, body: self.class.message_for(pool, result, previous), sender: @sender)
       unless @text_message.failed?
         @recommendation.update!(notified: true)
@@ -35,7 +44,7 @@ class PoolCheck
       end
     end
 
-    pool.update!(last_checked_at: now) if @notify
+    pool.update!(last_checked_at: now) if @notify && !snapshot
     self
   end
 

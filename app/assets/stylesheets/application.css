@@ -91,3 +91,7 @@ input[type="search"] { width: 12rem; }
 .button:disabled { opacity: .45; cursor: not-allowed; }
 .fields > * { min-width: 0; }
 select { width: 100%; }
+.flash.test-mode { background: #fff3cd; color: #6b4e00; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+@media (prefers-color-scheme: dark) { .flash.test-mode { background: #3a3000; color: #f3d77a; } }
+.snapshots { list-style: none; padding: 0; margin: .75rem 0 0; }
+.snapshots li { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; padding: .25rem 0; }

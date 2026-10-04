@@ -1,20 +1,24 @@
 # How comfortable a pool temperature is, given the ideal for the day and how
 # warm the day feels. On a warm day (air at or above the warm-day threshold) a
-# pool a little cooler than ideal still feels good; on a cool day, a pool a
-# little warmer than ideal does. Being off in the other direction is felt
-# right away.
+# pool a little cooler than ideal still feels fine; on a cool day, a pool a
+# little warmer than ideal does. "Fine" isn't "ideal", though: hitting the
+# ideal is still best, so being off in the fine direction counts a little, and
+# being off the other way is felt in full.
 module Comfort
   # How far into the "fine" direction still feels fine, °F.
   LEEWAY = 2.0
+  # How much a degree in the fine direction counts, compared to the other way.
+  FINE_WEIGHT = 0.25
 
   module_function
 
-  # °F of discomfort: 0 when it feels right.
+  # °F of discomfort: 0 only when exactly on the ideal.
   def discomfort(pool:, ideal:, air:, warm_threshold:)
     off = pool - ideal
     fine_direction = air >= warm_threshold ? -1 : 1 # cooler is fine when warm, warmer when cool
     if off * fine_direction >= 0
-      [ off.abs - LEEWAY, 0 ].max
+      within = [ off.abs, LEEWAY ].min
+      FINE_WEIGHT * within + (off.abs - within)
     else
       off.abs
     end

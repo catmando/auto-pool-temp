@@ -26,11 +26,11 @@ module Recommenders
       @warm_threshold = warm_threshold.to_f
     end
 
-    def self.for_pool(pool, forecast:, now: Time.current)
+    def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now))
       new(forecast: forecast, curve: TargetCurve.for(pool),
           heat_rate: pool.heat_rate_per_day, cool_rate: pool.cool_rate_per_day, now: now,
           check_times: pool.check_times_between(now, forecast.end_time),
-          water_temp: pool.estimated_water_temp(now), warm_threshold: pool.warm_day_threshold)
+          water_temp: water_temp, warm_threshold: pool.warm_day_threshold)
     end
 
     def call

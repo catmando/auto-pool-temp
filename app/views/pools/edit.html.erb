@@ -81,3 +81,28 @@
 
   <div><%= f.submit "Save settings", class: "button" %></div>
 <% end %>
+
+<section class="card" id="test-mode">
+  <h2>Test mode</h2>
+  <p class="muted">Plan against a saved forecast so results don't change while you compare settings and planners. "Now" stays at the moment the forecast was saved, and no alerts are sent.</p>
+  <% snapshots = pool.forecast_snapshots.recent %>
+  <%= form_with url: test_mode_path, method: :patch, class: "inline" do |f| %>
+    <label>Plan with
+      <%= f.select :snapshot_id, [ [ "Live forecast (test mode off)", "" ] ] + snapshots.map { |s| [ s.label, s.id ] },
+                   selected: pool.test_snapshot_id %>
+    </label>
+    <%= f.submit "Use", class: "button secondary" %>
+  <% end %>
+  <div class="inline">
+    <%= button_to "Save the forecast behind the current plan", forecast_snapshots_path, params: { source: "plan" }, class: "button secondary" %>
+    <%= button_to "Save the live forecast now", forecast_snapshots_path, params: { source: "live" }, class: "button secondary" %>
+  </div>
+  <% if snapshots.any? %>
+    <ul class="snapshots">
+      <% snapshots.each do |s| %>
+        <li><%= s.label %> <span class="muted">· water <%= degrees(s.water_temp) %></span>
+          <%= button_to "Delete", forecast_snapshot_path(s), method: :delete, class: "link" %></li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

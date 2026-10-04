@@ -2,6 +2,9 @@
 # Solid Queue scheduler (hourly pool checks), with SQLite on a volume.
 app = "auto-pool-temp"
 primary_region = "ewr"
+# Puma + 4 Solid Queue processes use ~540 MB at rest; swap keeps a one-off
+# `fly ssh console -C "bin/rails ..."` from exhausting memory (it did, 2026-10-04).
+swap_size_mb = 512
 
 [build]
 

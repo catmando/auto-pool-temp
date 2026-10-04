@@ -13,6 +13,8 @@ Rails.application.routes.draw do
   resources :checks, only: :create
   resources :text_messages, only: :index
   resource :lab, only: :show
+  resources :forecast_snapshots, only: %i[create destroy]
+  resource :test_mode, only: :update
 
   # Twilio inbound SMS webhook (configure as the "A message comes in" URL)
   post "twilio/sms" => "twilio_webhooks#create", as: :twilio_sms

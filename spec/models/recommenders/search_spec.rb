@@ -34,11 +34,12 @@ RSpec.describe Recommenders::Search do
 
     it "doesn't cool off during the snap to get ready for the mild days after" do
       result = plan(snap)
-      expect(row_at(result, 108)[:pool]).to be >= row_at(result, 84)[:pool] - 0.5 # settings are whole degrees
+      # It may ease off a little in the last hours (a degree at most) rather than stay too warm for days after.
+      expect(row_at(result, 108)[:pool]).to be >= row_at(result, 84)[:pool] - 1
     end
 
     it "explains a head start" do
-      result = plan(hourly_forecast(start: now) { |h| (40...100).cover?(h) ? 40 : 65 })
+      result = plan(hourly_forecast(start: now) { |h| (24...100).cover?(h) ? 40 : 65 })
       expect(result.reason).to include("colder weather is coming")
     end
   end
@@ -69,5 +70,43 @@ RSpec.describe Recommenders::Search do
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     plan(forecast)
     expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 3
+  end
+end
+
+RSpec.describe Recommenders::Search, "the Rochester forecast of Oct 4, 2026" do
+  # The owner's real case: it held 95 on Friday when the ideal was 94, and stayed
+  # around 93 Sun-Mon when the ideal was ~91.5, though it could hit both and still
+  # be on target Wednesday. Ideal-pool temps by day, as the curve gave them.
+  let(:zone) { ActiveSupport::TimeZone["America/New_York"] }
+  let(:now) { zone.local(2026, 10, 7, 7) }
+  let(:ideal_by_day) { { 7 => 92.5, 8 => 93.0, 9 => 94.0, 10 => 94.0, 11 => 91.5, 12 => 91.7, 13 => 94.0, 14 => 95.0, 15 => 95.0, 16 => 95.0 } }
+  let(:curve) { TargetCurve.new(hot_air: 95, hot_pool: 80, cold_air: 35, cold_pool: 102) }
+  let(:forecast) do
+    points = (0...(9 * 24)).map do |h|
+      t = now + h.hours
+      ideal = ideal_by_day.fetch(t.day)
+      air = 35 + (ideal - 102) / curve.slope # invert the curve
+      Weather::Forecast::Point.new(t, air)
+    end
+    Weather::Forecast.new(points, time_zone: zone.name)
+  end
+  let(:result) do
+    checks = (0..9).flat_map { |d| [ 7, 17 ].map { |h| zone.local(2026, 10, 7, h) + d.days } }.select { |t| t > now }
+    described_class.new(forecast: forecast, curve: curve, heat_rate: 3, cool_rate: 2, now: now,
+                        check_times: checks, water_temp: 93).call
+  end
+
+  def water_on(day, hour) = result.details[:series].find { |r| Time.zone.parse(r[:t]).in_time_zone(zone).then { |t| t.day == day && t.hour == hour } }[:pool]
+
+  it "holds the ideal on Friday instead of running warm" do
+    expect(water_on(9, 15)).to be_within(0.6).of(94)
+  end
+
+  it "comes down for Sunday and Monday" do
+    expect(water_on(12, 9)).to be <= 92.5
+  end
+
+  it "is back on target by Wednesday" do
+    expect(water_on(14, 15)).to be_within(1).of(95)
   end
 end

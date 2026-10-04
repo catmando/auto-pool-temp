@@ -27,16 +27,15 @@
       <p class="big"><%= degrees(@recommendation.target_temp) %></p>
       <p><%= @recommendation.reason %></p>
       <p class="muted">
-        <%= local_time(@recommendation.created_at) %> · <%= @recommendation.strategy %> ·
+        Updated <%= local_time(@recommendation.created_at) %> · <%= @recommendation.strategy %> ·
         <%= @recommendation.notified? ? "alert sent" : "no alert" %>
       </p>
     <% else %>
       <p class="muted">No checks yet.</p>
     <% end %>
-    <div class="inline">
-      <%= button_to "Preview now", checks_path, params: { notify: "0" }, class: "button secondary" %>
-      <%= button_to "Check & alert if needed", checks_path, params: { notify: "1" }, class: "button" %>
-    </div>
+    <% unless pool.test_mode? %>
+      <%= button_to "Send alert now if needed", checks_path, params: { notify: "1" }, class: "button secondary" %>
+    <% end %>
   </section>
 </div>
 

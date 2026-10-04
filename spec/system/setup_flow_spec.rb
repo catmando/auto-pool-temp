@@ -27,12 +27,23 @@ RSpec.describe "Setting up the app" do
     expect(TelegramBot.sender.last_body).to start_with("Connected!")
 
     click_link "Dashboard"
-    click_button "Check & alert if needed"
+    expect(page).to have_content("Set heater to") # the dashboard plans on its own
+    click_button "Send alert now if needed"
     expect(page).to have_content("sent an alert by Telegram")
     expect(TelegramBot.sender.deliveries.last).to include(to: "9001")
     expect(page).to have_css("svg.chart .line.pool")
     expect(page).to have_content("Set heater to")
 
+    visit edit_pool_path
+    click_button "Save the live forecast now"
+    select ForecastSnapshot.last.label, from: "Plan with"
+    click_button "Use"
+    expect(page).to have_content("Test mode on")
+    expect(page).to have_content("No alerts are sent")
+    click_button "Back to live"
+    expect(page).to have_content("Test mode off")
+
+    click_link "Dashboard"
     fill_in "Measured", with: "86"
     within(:xpath, "//section[.//h2[text()='Water']]") { click_button "Update" }
     expect(page).to have_content("the water is 86°F")
