@@ -29,7 +29,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 303 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 324 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -44,6 +44,9 @@ Single user for now; sign-up closes after the first account.
   recurring `scheduled_pool_checks` runs **in production only**. Thruster listens on 8080 (non-root).
   `bin/docker-entrypoint` starts as root, chowns the volume, then drops to the `rails` user via `setpriv`.
   The Telegram and Twilio webhooks point at Fly.
+- **Memory:** about 540 MB at rest (Puma + 4 Solid Queue processes) on a 512 MB machine, so `fly.toml` adds
+  512 MB swap. A `fly ssh console -C "bin/rails runner ..."` without swap took production down (2026-10-04).
+  For read-only queries prefer `sqlite3 -json /rails/storage/production.sqlite3 '...'` over ssh.
 - **Local dev:** `bin/dev` (foreman, `Procfile.dev`) runs web only, with no scheduler. `TUNNEL=1 bin/dev` also
   runs `bin/tunnel`, which **takes the webhooks away from production**. Hand them back with
   `bin/rails "notify:webhooks[https://auto-pool-temp.fly.dev]"`. The dev queue DB is
@@ -99,6 +102,12 @@ Single user for now; sign-up closes after the first account.
 - **Lab page (`/lab`, `PlannerLab`)**: runs every planner on the live forecast plus made-up weather
   (cold snap, heat wave, choppy fall), with the pool's own settings, and shows comfort scores and charts.
   Use it to compare and tune planners. Latest results: Search is best in every scenario.
+- **Test mode** (`ForecastSnapshot`, `pool.test_snapshot`): plan against a saved forecast with "now" frozen at
+    `taken_at` and no alerts; the scheduler skips test-mode pools. Save from Settings (live forecast, or the
+    one behind the current plan) or `bin/rails "snapshots:from_recommendation[ID,NAME]"`. Snapshot 1 in
+    production is the owner's Oct 4 3pm Rochester forecast (the Friday-overshoot case).
+  - The dashboard re-plans by itself (no alert) when the plan is >1h old or older than `pool.updated_at`
+    (settings, heater setting, water reading, test mode). The "Preview now" button is gone.
 - Water temperature: `pool.estimated_water_temp(time)` advances the last known value (reported with
   "water 86" by reply or on the dashboard, or banked by `record_setpoint!`) toward the heater setting.
   With nothing known, it's assumed to match the setting.
