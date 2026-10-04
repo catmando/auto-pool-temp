@@ -8,7 +8,7 @@ RSpec.describe Recommenders::Search do
   let(:now) { Time.utc(2026, 10, 1, 4) }
   let(:checks) { (0..17).flat_map { |d| [ 7, 17 ].map { |h| Time.utc(2026, 10, 1, h) + d.days } }.select { |t| t > now } }
 
-  def plan(forecast, water: nil, heat: 3, cool: 2)
+  def plan(forecast, water: nil, heat: 3 / 24.0, cool: 2 / 24.0)
     described_class.new(forecast: forecast, curve: curve, heat_rate: heat, cool_rate: cool, now: now,
                         check_times: checks.select { |t| t <= forecast.end_time }, water_temp: water).call
   end
@@ -27,7 +27,7 @@ RSpec.describe Recommenders::Search do
     end
 
     it "is more comfortable than just following the ideal" do
-      follow = Recommenders::Follow.new(forecast: snap, curve: curve, heat_rate: 3, cool_rate: 2, now: now,
+      follow = Recommenders::Follow.new(forecast: snap, curve: curve, heat_rate: 3 / 24.0, cool_rate: 2 / 24.0, now: now,
                                         check_times: checks.select { |t| t <= snap.end_time }).call
       expect(comfort(plan(snap))).to be < comfort(follow)
     end
@@ -92,7 +92,7 @@ RSpec.describe Recommenders::Search, "the Rochester forecast of Oct 4, 2026" do
   end
   let(:result) do
     checks = (0..9).flat_map { |d| [ 7, 17 ].map { |h| zone.local(2026, 10, 7, h) + d.days } }.select { |t| t > now }
-    described_class.new(forecast: forecast, curve: curve, heat_rate: 3, cool_rate: 2, now: now,
+    described_class.new(forecast: forecast, curve: curve, heat_rate: 3 / 24.0, cool_rate: 2 / 24.0, now: now,
                         check_times: checks, water_temp: 93).call
   end
 
@@ -120,7 +120,8 @@ RSpec.describe Recommenders::Search, "warm-day threshold" do
   let(:pool) { PlannerBenchmark.pool }
 
   def offset(threshold)
-    described_class.new(forecast: scenario.forecast, curve: TargetCurve.for(pool), heat_rate: 3, cool_rate: 2,
+    described_class.new(forecast: scenario.forecast, curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_hour,
+                        cool_rate: pool.cool_rate_per_hour, pump: pool.pump_schedule,
                         now: scenario.now, water_temp: 95, warm_threshold: threshold,
                         check_times: pool.check_times_between(scenario.now, scenario.forecast.end_time))
                    .call.details[:comfort][:mean_offset]

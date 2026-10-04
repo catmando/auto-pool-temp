@@ -16,10 +16,11 @@ class PlannerBenchmark
 
   Scenario = Data.define(:key, :forecast, :now, :water_temp)
 
-  # The owner's settings as of 2026-10-04.
+  # The owner's settings as of 2026-10-05 (pump 4-10am and 4-10pm; heats 2°F/h, cools 0.1°F/h).
   def self.pool
     Pool.new(hot_air_temp: 95, hot_pool_temp: 80, cold_air_temp: 35, cold_pool_temp: 102,
-             heat_rate_per_day: 3, cool_rate_per_day: 2, checks_per_day: 2, warm_day_threshold: 80,
+             heat_rate_per_hour: 2, cool_rate_per_hour: 0.1, checks_per_day: 2, warm_day_threshold: 80,
+             pump_on_1: "04:00", pump_off_1: "10:00", pump_on_2: "16:00", pump_off_2: "22:00",
              time_zone: "America/New_York")
   end
 
@@ -35,8 +36,8 @@ class PlannerBenchmark
     pool = self.class.pool
     klass = Recommenders.for(strategy)
     scenarios.to_h do |s|
-      result = klass.new(forecast: s.forecast, curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_day,
-                         cool_rate: pool.cool_rate_per_day, now: s.now, water_temp: s.water_temp,
+      result = klass.new(forecast: s.forecast, curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_hour,
+                         cool_rate: pool.cool_rate_per_hour, pump: pool.pump_schedule, now: s.now, water_temp: s.water_temp,
                          check_times: pool.check_times_between(s.now, s.forecast.end_time),
                          warm_threshold: pool.warm_day_threshold).call
       comfort = result.details[:comfort]

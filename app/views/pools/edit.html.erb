@@ -57,10 +57,17 @@
   </section>
 
   <section class="card">
-    <h2>How fast the pool changes</h2>
+    <h2>Pump and heater</h2>
+    <p class="muted">The heater only runs while the pump runs. When the pump is off, the water cools even if it's below the heater setting.</p>
+    <div class="fields pairs">
+      <label>Pump on <%= f.time_field :pump_on_1 %></label>
+      <label>Pump off <%= f.time_field :pump_off_1 %></label>
+      <label>Pump on again (optional) <%= f.time_field :pump_on_2 %></label>
+      <label>Pump off again (optional) <%= f.time_field :pump_off_2 %></label>
+    </div>
     <div class="fields">
-      <label>Heats up (°F per day) <%= f.number_field :heat_rate_per_day, step: "any", min: 0.1 %></label>
-      <label>Cools down (°F per day) <%= f.number_field :cool_rate_per_day, step: "any", min: 0.1 %></label>
+      <label>Heats up (°F per hour, pump on) <%= f.number_field :heat_rate_per_hour, step: "any", min: 0.01 %></label>
+      <label>Cools down (°F per hour) <%= f.number_field :cool_rate_per_hour, step: "any", min: 0.01 %></label>
     </div>
   </section>
 

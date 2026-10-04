@@ -33,7 +33,7 @@ RSpec.describe "Dashboard" do
     it "re-plans when settings change" do
       get root_path
       travel 1.minute do
-        patch pool_path, params: { pool: { heat_rate_per_day: 5 } }
+        patch pool_path, params: { pool: { heat_rate_per_hour: 1.5 } }
         expect { get root_path }.to change(pool.recommendations, :count).by(1)
       end
     end
@@ -79,7 +79,7 @@ RSpec.describe "Dashboard" do
 
   it "shows the plan chart and a table of upcoming settings" do
     get root_path
-    expect(response.body).to include('class="line setpoint"', "Set heater to", "Water then")
+    expect(response.body).to include("setpoint-marker", "Set heater to", "Water then")
   end
 
   it "shows recent messages" do

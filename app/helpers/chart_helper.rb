@@ -3,7 +3,7 @@ module ChartHelper
   POOL_SERIES = [
     { key: "desired", label: "Ideal pool", css: "desired" },
     { key: "pool", label: "Expected water", css: "pool" },
-    { key: "setpoint", label: "Heater setting", css: "setpoint" }
+    { key: "setpoint", label: "Heater setting changes", css: "setpoint" }
   ].freeze
   AIR_SERIES = { key: "smoothed_air", label: "Air (24h avg, right axis)", css: "air" }.freeze
 
@@ -50,27 +50,25 @@ module ChartHelper
       parts << tag.text(local.strftime("%a"), x: x.(times[i]) + 3, y: height - 8, class: "axis")
     end
 
+    parts.concat(pump_bands(rows, times, x, pad_t, plot_h)) if rows.first.key?("pump")
+
     if rows.first.key?(AIR_SERIES[:key])
       points = rows.each_with_index.map { |r, i| "#{x.(times[i]).round(1)},#{y_air.(r[AIR_SERIES[:key]].to_f).round(1)}" }
       parts << tag.polyline(points: points.join(" "), class: "line air")
     end
 
-    pool_keys.each do |key|
+    (pool_keys - [ "setpoint" ]).each do |key|
       css = POOL_SERIES.find { |s| s[:key] == key }[:css]
-      points =
-        if key == "setpoint"
-          step_points(rows, times, x, y)
-        else
-          rows.each_with_index.map { |r, i| "#{x.(times[i]).round(1)},#{y.(r[key].to_f).round(1)}" }
-        end
+      points = rows.each_with_index.map { |r, i| "#{x.(times[i]).round(1)},#{y.(r[key].to_f).round(1)}" }
       parts << tag.polyline(points: points.join(" "), class: "line #{css}")
     end
-    parts.concat(setpoint_labels(rows, times, x, y)) if pool_keys.include?("setpoint")
+    parts.concat(setpoint_markers(rows, times, x, y, zone)) if pool_keys.include?("setpoint")
 
     svg = tag.svg(safe_join(parts), viewBox: "0 0 #{width} #{height}", class: "chart",
                   role: "img", "aria-label": "Heater plan, expected water temperature, and ideal temperature")
     shown = POOL_SERIES.select { |s| pool_keys.include?(s[:key]) }
     shown += [ AIR_SERIES ] if rows.first.key?(AIR_SERIES[:key])
+    shown += [ { label: "Pump on", css: "pump" } ] if rows.first.key?("pump")
     legend = tag.div(class: "legend") { safe_join(shown.map { |s| tag.span(s[:label], class: "key #{s[:css]}") }) }
     tag.div(svg + legend, class: "chart-wrap")
   end
@@ -84,29 +82,38 @@ module ChartHelper
     [ lo, hi ]
   end
 
-  # Horizontal-then-vertical steps for the heater setting.
-  def step_points(rows, times, x, y)
-    rows.each_with_index.flat_map do |r, i|
-      point = "#{x.(times[i]).round(1)},#{y.(r['setpoint'].to_f).round(1)}"
-      if i.positive? && r["setpoint"] != rows[i - 1]["setpoint"]
-        [ "#{x.(times[i]).round(1)},#{y.(rows[i - 1]['setpoint'].to_f).round(1)}", point ]
-      else
-        [ point ]
-      end
+  # Light bands behind the hours the pump (and so the heater) runs.
+  def pump_bands(rows, times, x, top, height)
+    width = times.size > 1 ? x.(times[1]) - x.(times[0]) : 0
+    rows.each_with_index.filter_map do |r, i|
+      next unless r["pump"].to_f.positive?
+
+      tag.rect(x: x.(times[i]).round(1), y: top, width: (width * r["pump"].to_f).round(2), height: height, class: "pump-band")
     end
   end
 
-  # Number labels where the setting changes (thinned so they don't collide).
-  def setpoint_labels(rows, times, x, y)
-    last_x = -100
-    rows.each_with_index.filter_map do |r, i|
-      next unless i.zero? || r["setpoint"] != rows[i - 1]["setpoint"]
+  LABEL_WIDTH = 50 # px a "7am: 95" label needs
+
+  # A dot and "7am: 95" where the heater setting changes. Labels go above the
+  # dot, or below it when that would collide with the previous label; one is
+  # only dropped if neither spot is free.
+  def setpoint_markers(rows, times, x, y, zone)
+    last_above = last_below = -100
+    rows.each_with_index.flat_map do |r, i|
+      next [] unless i.zero? || r["setpoint"] != rows[i - 1]["setpoint"]
 
       px = x.(times[i])
-      next if px - last_x < 22
-
-      last_x = px
-      tag.text(r["setpoint"].to_i, x: px + 2, y: y.(r["setpoint"].to_f) - 4, class: "setpoint-label")
+      py = y.(r["setpoint"].to_f)
+      parts = [ tag.circle(cx: px.round(1), cy: py.round(1), r: 3.5, class: "setpoint-marker") ]
+      label = "#{Time.zone.parse(r['t'].to_s).in_time_zone(zone).strftime('%-l%P')}: #{r['setpoint'].to_i}"
+      if px - last_above >= LABEL_WIDTH
+        last_above = px
+        parts << tag.text(label, x: px + 5, y: py - 6, class: "setpoint-label")
+      elsif px - last_below >= LABEL_WIDTH
+        last_below = px
+        parts << tag.text(label, x: px + 5, y: py + 14, class: "setpoint-label")
+      end
+      parts
     end
   end
 end

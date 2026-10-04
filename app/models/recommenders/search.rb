@@ -18,7 +18,7 @@ module Recommenders
       previous = start_temp.round
       stages.map do |stage|
         setpoint = best_setpoint(stage, temp, values[stage.index + 1], previous)
-        (stage.start...stage.stop).each { temp = physics.advance(temp, setpoint, 1) }
+        temp = run_stage(stage, temp, setpoint)
         previous = setpoint
       end
     end
@@ -71,7 +71,7 @@ module Recommenders
     def stage_cost(stage, temp, setpoint, following)
       cost = 0.0
       (stage.start...stage.stop).each do |i|
-        temp = physics.advance(temp, setpoint, 1)
+        temp = step(temp, setpoint, i)
         cost += Comfort.discomfort(pool: temp, ideal: desired[i], air: day_air[i], warm_threshold: warm_threshold)
       end
       cost + interpolate(following, temp)

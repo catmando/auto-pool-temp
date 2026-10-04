@@ -49,7 +49,7 @@ RSpec.describe PoolCheck do
   end
 
   context "when nothing needs to change" do
-    before { pool.update!(assumed_setpoint: 91) }
+    before { pool.update!(assumed_setpoint: 92) } # a degree up covers the pump-off dips on a cool day
 
     it "doesn't text" do
       result = check

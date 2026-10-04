@@ -27,7 +27,18 @@ module Recommenders
       raise NotImplementedError
     end
 
-    def physics = @physics ||= PoolPhysics.new(heat_rate: heat_rate, cool_rate: cool_rate)
+    def physics = @physics ||= PoolPhysics.new(heat_rate: heat_rate, cool_rate: cool_rate, pump: pump)
+
+    # Share of each hour the pump (and so the heater) runs.
+    def pump_on = @pump_on ||= hours.map { |t| pump.on_fraction(t) }
+
+    # Water temp after hour +i+ starting from +temp+.
+    def step(temp, setpoint, i) = physics.step(temp, setpoint, pump_on[i])
+
+    def run_stage(stage, temp, setpoint)
+      (stage.start...stage.stop).each { |i| temp = step(temp, setpoint, i) }
+      temp
+    end
 
     def hours = sample_times
 
@@ -56,25 +67,25 @@ module Recommenders
       temp = start_temp
       stages.zip(setpoints).flat_map do |stage, setpoint|
         (stage.start...stage.stop).map do |i|
-          temp = physics.advance(temp, setpoint, 1)
+          temp = step(temp, setpoint, i)
           { t: hours[i], air: forecast.temp_at(hours[i]).round(1), smoothed_air: day_air[i].round(1),
-            desired: desired[i].round(1), pool: temp.round(2), setpoint: setpoint }
+            desired: desired[i].round(1), pool: temp.round(2), setpoint: setpoint, pump: pump_on[i].round(2) }
         end
       end
     end
 
-    # While the water is still heating (or cooling) at full speed through a
-    # stage, any setting further along heats it just as fast. So when the next
-    # stage keeps going the same way, use its setting now: the water does the
-    # same thing, and a multi-day ramp becomes one change instead of one per check.
+    # While the water is still heating (or cooling) as fast as it can through a
+    # stage, any setting further along does exactly the same thing. So when the
+    # next stage keeps going the same way, use its setting now: the water is
+    # unchanged, and a multi-day ramp becomes one change instead of one per check.
     def merge_ramps(setpoints)
       setpoints = setpoints.dup
       starts = water_at_stage_starts(setpoints)
       (setpoints.size - 2).downto(0) do |k|
-        hours = stages[k].stop - stages[k].start
-        moved = starts[k + 1] - starts[k]
-        heating_flat_out = moved >= physics.heat_per_hour * hours - 0.01
-        cooling_flat_out = -moved >= physics.cool_per_hour * hours - 0.01
+        stage = stages[k]
+        reached = run_stage(stage, starts[k], setpoints[k])
+        heating_flat_out = (reached - run_stage(stage, starts[k], Float::INFINITY)).abs < 0.01
+        cooling_flat_out = (reached - run_stage(stage, starts[k], -Float::INFINITY)).abs < 0.01
         setpoints[k] = setpoints[k + 1] if (heating_flat_out && setpoints[k + 1] > setpoints[k]) ||
                                             (cooling_flat_out && setpoints[k + 1] < setpoints[k])
       end
@@ -83,9 +94,7 @@ module Recommenders
 
     def water_at_stage_starts(setpoints)
       temp = start_temp
-      [ temp ] + stages.zip(setpoints).map do |stage, setpoint|
-        temp = physics.advance(temp, setpoint, stage.stop - stage.start)
-      end
+      [ temp ] + stages.zip(setpoints).map { |stage, setpoint| temp = run_stage(stage, temp, setpoint) }
     end
 
     def stage_ideal(stage) = desired[stage.start...stage.stop].sum / (stage.stop - stage.start)

@@ -14,7 +14,9 @@ Single user for now; sign-up closes after the first account.
 - The target pool temp is a straight line from outside air temp. Default anchors are
   95°F air → 80°F pool and 35°F air → 102°F pool. Both anchors are user-adjustable.
   **The line keeps extrapolating past the anchors (no clamping), by owner's choice.**
-- User-set heat-up and cool-down rates (°F/day) decide how early to act.
+- User-set heat-up and cool-down rates, **°F per hour** (since 2026-10-05; the owner's: heat 2, cool 0.1).
+- **The heater only runs while the pump runs.** One or two daily pump windows (default 4–10am and
+  4–10pm). With the pump off the water cools at the cool rate, even below the heater setting.
 - Text via Twilio, 1/2/3 checks per day, **only when the setting should change**.
 - Each text states the assumed current setting; the user can reply with the real one.
 - Weather: use hourly temps if the provider has them. If it only has daily
@@ -29,7 +31,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 344 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 358 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -83,8 +85,9 @@ Single user for now; sign-up closes after the first account.
 - `Recommenders` holds the **swappable planners**. `Recommenders.registry` maps key to class; a pool
   picks one with `pool.strategy`. Each planner produces a **heater schedule**: one whole-degree setting
   per scheduled check (1–3/day), held until the next check (`Recommenders::SchedulePlanner`).
-  The shared base simulates the water hour by hour from its current temperature (`PoolPhysics`:
-  heats toward the setting at heat_rate, cools toward it at cool_rate, never past it), scores it with
+  The shared base simulates the water hour by hour from its current temperature (`PoolPhysics.step`,
+  per-hour rates, with `PumpSchedule#on_fraction` giving how much of each hour the pump runs: pump on means
+  heat toward the setting, or cool to it but not below; pump off means cool regardless), scores it with
   `Comfort`, merges multi-day ramps into one setting change (`merge_ramps`: while the water is moving
   flat out, a further setting does the same thing), and writes the reason text.
   - `search` (default): dynamic programming over water temperature (0.5°F grid) and integer settings,
@@ -106,7 +109,8 @@ Single user for now; sign-up closes after the first account.
     Rochester Oct 4 forecast in `spec/fixtures/forecasts/`, plus the made-up patterns on fixed dates, with the owner's
     settings). The spec fails if the default planner's **mean_error** (average |expected water - ideal|, the owner's
     headline metric) or **mean_discomfort** gets worse than `spec/fixtures/planner_baseline.yml` on any scenario.
-    `bin/rails planner:benchmark` compares; `bin/rails planner:record_baseline` accepts improvements (commit the diff).
+    The baseline was re-recorded for the pump model on 2026-10-05 (scores from different physics aren't
+    comparable). `bin/rails planner:benchmark` compares; `bin/rails planner:record_baseline` accepts improvements (commit the diff).
     To add a scenario, drop a forecast JSON in `spec/fixtures/forecasts/` and re-record.
   - **Test mode** (`ForecastSnapshot`, `pool.test_snapshot`): plan against a saved forecast with "now" frozen at
     `taken_at` and no alerts; the scheduler skips test-mode pools. Save from Settings (live forecast, or the

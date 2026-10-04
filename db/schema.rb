@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_010000) do
   create_table "forecast_snapshots", force: :cascade do |t|
     t.integer "pool_id", null: false
     t.string "name", null: false
@@ -34,8 +34,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_000000) do
     t.decimal "hot_pool_temp", precision: 5, scale: 1, default: "80.0", null: false
     t.decimal "cold_air_temp", precision: 5, scale: 1, default: "35.0", null: false
     t.decimal "cold_pool_temp", precision: 5, scale: 1, default: "102.0", null: false
-    t.decimal "heat_rate_per_day", precision: 5, scale: 2, default: "3.0", null: false
-    t.decimal "cool_rate_per_day", precision: 5, scale: 2, default: "2.0", null: false
     t.string "phone_number"
     t.integer "checks_per_day", default: 2, null: false
     t.integer "min_change", default: 1, null: false
@@ -62,6 +60,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_000000) do
     t.datetime "water_temp_at"
     t.string "water_temp_source"
     t.integer "test_snapshot_id"
+    t.string "pump_on_1", default: "04:00", null: false
+    t.string "pump_off_1", default: "10:00", null: false
+    t.string "pump_on_2", default: "16:00"
+    t.string "pump_off_2", default: "22:00"
+    t.decimal "heat_rate_per_hour", precision: 5, scale: 3, default: "2.0", null: false
+    t.decimal "cool_rate_per_hour", precision: 5, scale: 3, default: "0.1", null: false
     t.index ["phone_number"], name: "index_pools_on_phone_number"
     t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
     t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true

@@ -98,3 +98,6 @@ select { width: 100%; }
 .save-status.ok { color: var(--ok); font-weight: 600; }
 .save-status.error { color: var(--bad); }
 .save-bar { position: sticky; bottom: 0; padding: .6rem 0 calc(.6rem + env(safe-area-inset-bottom, 0px)); background: var(--bg); z-index: 1; }
+.chart .pump-band { fill: var(--pool); opacity: .07; }
+.chart .setpoint-marker { fill: var(--setpoint); stroke: var(--card); stroke-width: 1.5; }
+.legend .pump::before { background: var(--pool); opacity: .25; height: 10px; }

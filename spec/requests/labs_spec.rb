@@ -9,7 +9,7 @@ RSpec.describe "Planner lab" do
     get lab_path
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Your forecast", "Cold snap", "Heat wave", "Choppy fall", "Search", "Follow",
-                                     "Avg discomfort", 'class="line setpoint"')
+                                     "Avg discomfort", "setpoint-marker")
   end
 
   it "still shows the made-up weather when the forecast is down" do

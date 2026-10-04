@@ -5,20 +5,21 @@ module Recommenders
     def self.label = name.demodulize.titleize
     def self.description = ""
 
-    attr_reader :forecast, :curve, :heat_rate, :cool_rate, :now, :next_check_at, :check_times,
+    attr_reader :forecast, :curve, :heat_rate, :cool_rate, :pump, :now, :next_check_at, :check_times,
                 :water_temp, :warm_threshold
 
-    # heat_rate / cool_rate are °F per day.
+    # heat_rate / cool_rate are °F per hour. pump: when the heater can run (PumpSchedule).
     # check_times: when the heater setting can next be changed (scheduled checks), after now.
     # water_temp: best estimate of the actual water temperature now (nil if unknown).
     # warm_threshold: above this air temp a slightly cooler pool feels comfortable;
     #   below it, a slightly warmer one does.
-    def initialize(forecast:, curve:, heat_rate:, cool_rate:, now: Time.current, next_check_at: nil,
+    def initialize(forecast:, curve:, heat_rate:, cool_rate:, pump: PumpSchedule.always_on, now: Time.current, next_check_at: nil,
                    check_times: nil, water_temp: nil, warm_threshold: 80)
       @forecast = forecast
       @curve = curve
       @heat_rate = heat_rate.to_f
       @cool_rate = cool_rate.to_f
+      @pump = pump
       @now = now
       @check_times = check_times || default_check_times(next_check_at || now + 12.hours)
       @next_check_at = @check_times.first || now + 12.hours
@@ -28,7 +29,7 @@ module Recommenders
 
     def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now))
       new(forecast: forecast, curve: TargetCurve.for(pool),
-          heat_rate: pool.heat_rate_per_day, cool_rate: pool.cool_rate_per_day, now: now,
+          heat_rate: pool.heat_rate_per_hour, cool_rate: pool.cool_rate_per_hour, pump: pool.pump_schedule, now: now,
           check_times: pool.check_times_between(now, forecast.end_time),
           water_temp: water_temp, warm_threshold: pool.warm_day_threshold)
     end

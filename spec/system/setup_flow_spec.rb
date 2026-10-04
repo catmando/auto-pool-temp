@@ -17,7 +17,7 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Location set to 14618, Town of Brighton, New York.")
     expect(page).to have_content("America/New_York")
 
-    fill_in "Heats up (°F per day)", with: "4"
+    fill_in "Heats up (°F per hour, pump on)", with: "1.5"
     click_button "Save settings"
     expect(page).to have_content("Connect Telegram to start getting alerts")
 

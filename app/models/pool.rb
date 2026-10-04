@@ -21,7 +21,10 @@ class Pool < ApplicationRecord
 
   validates :name, presence: true
   validates :hot_air_temp, :hot_pool_temp, :cold_air_temp, :cold_pool_temp, numericality: true
-  validates :heat_rate_per_day, :cool_rate_per_day, numericality: { greater_than: 0, less_than_or_equal_to: 50 }
+  validates :heat_rate_per_hour, :cool_rate_per_hour, numericality: { greater_than: 0, less_than_or_equal_to: 10 }
+  validates :pump_on_1, :pump_off_1, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 04:00" }
+  validates :pump_on_2, :pump_off_2, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 16:00" }, allow_blank: true
+  validate :second_pump_window_complete
   validates :checks_per_day, inclusion: { in: CHECK_HOURS.keys }
   validates :warm_day_threshold, numericality: { in: 40..110 }
   validates :min_change, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
@@ -41,6 +44,11 @@ class Pool < ApplicationRecord
   def located? = latitude.present? && longitude.present?
 
   def test_mode? = test_snapshot_id.present?
+
+  # When the pump (and so the heater) can run.
+  def pump_schedule
+    PumpSchedule.new([ [ pump_on_1, pump_off_1 ], [ pump_on_2, pump_off_2 ] ], time_zone: time_zone)
+  end
 
   def phone_verified? = phone_number.present? && phone_verified_at.present?
 
@@ -109,7 +117,7 @@ class Pool < ApplicationRecord
   def estimated_water_temp(time = Time.current)
     return assumed_setpoint&.to_f if water_temp.nil?
 
-    PoolPhysics.for(self).advance(water_temp.to_f, assumed_setpoint, (time - (water_temp_at || time)) / 3600.0)
+    PoolPhysics.for(self).advance(water_temp.to_f, assumed_setpoint, from: water_temp_at || time, to: time)
   end
 
   def record_water_temp!(value, source: "reported", at: Time.current)
@@ -137,6 +145,12 @@ class Pool < ApplicationRecord
     self.phone_verification_digest = nil
     self.phone_verification_sent_at = nil
     self.phone_verification_attempts = 0
+  end
+
+  def second_pump_window_complete
+    return if pump_on_2.blank? == pump_off_2.blank?
+
+    errors.add(:pump_off_2, "needs both an on and an off time (or leave both blank)")
   end
 
   def time_zone_exists

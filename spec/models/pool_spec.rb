@@ -12,8 +12,8 @@ RSpec.describe Pool do
   describe "validations" do
     it { is_expected.to be_valid }
     it { is_expected.to validate_presence_of(:name) }
-    it { is_expected.to validate_numericality_of(:heat_rate_per_day).is_greater_than(0) }
-    it { is_expected.to validate_numericality_of(:cool_rate_per_day).is_greater_than(0) }
+    it { is_expected.to validate_numericality_of(:heat_rate_per_hour).is_greater_than(0) }
+    it { is_expected.to validate_numericality_of(:cool_rate_per_hour).is_greater_than(0) }
     it { is_expected.to validate_inclusion_of(:checks_per_day).in_array([ 1, 2, 3 ]) }
     it { is_expected.to validate_numericality_of(:forecast_days).only_integer.is_in(1..16) }
     it { is_expected.to validate_numericality_of(:min_change).only_integer.is_greater_than_or_equal_to(1) }
@@ -183,29 +183,53 @@ RSpec.describe Pool, "alert delivery" do
 end
 
 RSpec.describe Pool, "water temperature" do
-  let(:pool) { create(:pool, assumed_setpoint: 90, heat_rate_per_day: 3, cool_rate_per_day: 2) }
+  # Heats 2°F/h while the pump runs (4-10am, 4-10pm Chicago time), cools 0.1°F/h otherwise.
+  let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
+  let(:pool) { create(:pool, assumed_setpoint: 90, heat_rate_per_hour: 2, cool_rate_per_hour: 0.1) }
+
+  around { |example| travel_to(zone.local(2026, 10, 5, 12)) { example.run } }
 
   it "assumes the water matches the heater when nothing was reported" do
     expect(pool.estimated_water_temp).to eq(90)
     expect(build(:pool, assumed_setpoint: nil).estimated_water_temp).to be_nil
   end
 
-  it "moves a reading toward the heater setting over time" do
+  it "heats a reading during pump hours and lets it cool the rest of the time" do
     pool.record_water_temp!(84, at: 1.day.ago)
-    expect(pool.estimated_water_temp).to be_within(0.01).of(87)
+    # Noon-4pm cools to 83.6; 4pm pump heats it to 90; 10pm-4am cools to 89.4;
+    # 4am pump back to 90; 10am-noon cools to 89.8.
+    expect(pool.estimated_water_temp).to be_within(0.01).of(89.8)
   end
 
   it "banks the water temp reached so far when the setting changes" do
     pool.record_water_temp!(84, at: 1.day.ago)
     pool.record_setpoint!(80, source: "user_reported")
     expect(pool.reload).to have_attributes(water_temp_source: "estimated")
-    expect(pool.water_temp.to_f).to be_within(0.01).of(87)
-    expect(pool.estimated_water_temp(1.day.from_now)).to be_within(0.01).of(85)
+    expect(pool.water_temp.to_f).to be_within(0.01).of(89.8)
+    # Heater below the water now: it just cools, 0.1°F/h for 24 hours.
+    expect(pool.estimated_water_temp(1.day.from_now)).to be_within(0.01).of(87.4)
   end
 
   it "lists check times over a period" do
     zone = ActiveSupport::TimeZone["America/Chicago"]
     times = pool.check_times_between(zone.local(2026, 10, 1, 8), zone.local(2026, 10, 2, 8))
     expect(times).to eq([ zone.local(2026, 10, 1, 17), zone.local(2026, 10, 2, 7) ])
+  end
+end
+
+RSpec.describe Pool, "pump schedule" do
+  it "defaults to 4-10am and 4-10pm" do
+    expect(create(:user).pool.pump_schedule.describe).to eq("4am–10am and 4pm–10pm")
+  end
+
+  it "allows a single window" do
+    pool = build(:pool, pump_on_1: "06:00", pump_off_1: "20:00", pump_on_2: "", pump_off_2: "")
+    expect(pool).to be_valid
+    expect(pool.pump_schedule.describe).to eq("6am–8pm")
+  end
+
+  it "rejects bad times and half a second window" do
+    expect(build(:pool, pump_on_1: "25:00")).not_to be_valid
+    expect(build(:pool, pump_on_2: "16:00", pump_off_2: "")).not_to be_valid
   end
 end

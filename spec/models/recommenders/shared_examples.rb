@@ -5,7 +5,7 @@ RSpec.shared_examples "a schedule planner" do
   # Checks at 7am and 5pm UTC.
   let(:checks) { (0..17).flat_map { |d| [ 7, 17 ].map { |h| Time.utc(2026, 10, 1, h) + d.days } }.select { |t| t > now } }
 
-  def plan(forecast, water: nil, heat: 3, cool: 2, warm_threshold: 80)
+  def plan(forecast, water: nil, heat: 3 / 24.0, cool: 2 / 24.0, warm_threshold: 80)
     described_class.new(forecast: forecast, curve: curve, heat_rate: heat, cool_rate: cool, now: now,
                         check_times: checks.select { |t| t <= forecast.end_time }, water_temp: water,
                         warm_threshold: warm_threshold).call

@@ -20,10 +20,10 @@ RSpec.describe "Pool settings" do
   end
 
   it "updates settings" do
-    patch pool_path, params: { pool: { hot_air_temp: 90, cold_pool_temp: 100, heat_rate_per_day: 4.5,
+    patch pool_path, params: { pool: { hot_air_temp: 90, cold_pool_temp: 100, heat_rate_per_hour: 1.5,
                                        warm_day_threshold: 75, checks_per_day: 3, strategy: "follow" } }
     expect(response).to redirect_to(root_path)
-    expect(pool.reload).to have_attributes(hot_air_temp: 90, cold_pool_temp: 100, heat_rate_per_day: 4.5,
+    expect(pool.reload).to have_attributes(hot_air_temp: 90, cold_pool_temp: 100, heat_rate_per_hour: 1.5,
                                            warm_day_threshold: 75, checks_per_day: 3, strategy: "follow")
   end
 
@@ -33,9 +33,9 @@ RSpec.describe "Pool settings" do
   end
 
   it "re-renders invalid settings" do
-    patch pool_path, params: { pool: { heat_rate_per_day: 0 } }
+    patch pool_path, params: { pool: { heat_rate_per_hour: 0 } }
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.body).to include("Heat rate per day must be greater than 0")
+    expect(response.body).to include("Heat rate per hour must be greater than 0")
   end
 
   it "asks to connect Telegram when it isn't yet" do
@@ -64,9 +64,9 @@ RSpec.describe "Pool settings autosave and plan" do
   end
 
   it "returns validation errors as JSON" do
-    patch pool_path(format: :json), params: { pool: { heat_rate_per_day: 0 } }
+    patch pool_path(format: :json), params: { pool: { heat_rate_per_hour: 0 } }
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body["errors"]).to include("Heat rate per day must be greater than 0")
+    expect(response.parsed_body["errors"]).to include("Heat rate per hour must be greater than 0")
   end
 
   it "says changes save automatically, with no plan chart on Settings" do
