@@ -2,12 +2,13 @@
 #   "/start <token>"         -> (Telegram) link this chat to a pool
 #   "123456"                 -> (SMS) phone confirmation code
 #   "84" / "84F" / "set 84"  -> heater is actually at 84°F; re-check and advise
+#   "water 86" / "w 86"      -> the water itself is 86°F; re-plan from there
 #   "status" / "?"           -> what the heater should be set to now
 #   "pause" / "resume"       -> turn alerts off / on (Twilio also handles STOP itself)
 #   anything else            -> help
 # Replies go back on the same channel, to the sender.
 class InboundMessage
-  HELP = "Reply with your heater's current setting (e.g. \"84\"), STATUS for the current recommendation, " \
+  HELP = "Reply with your heater's current setting (e.g. \"84\"), the water temperature (e.g. \"water 86\"), STATUS for the current recommendation, " \
          "or PAUSE / RESUME to turn alerts off or on."
 
   def self.handle(**options) = new(**options).handle
@@ -70,6 +71,8 @@ class InboundMessage
     end
 
     case @body.downcase
+    when /\A(?:water|pool|w)\s*(?:is|at|=|:)?\s*(\d{2,3}(?:\.\d+)?)\s*°?\s*f?\z/
+      water_reported($1.to_f, pool)
     when /\A(?:set\s*(?:to)?\s*)?(\d{2,3})\s*°?\s*f?\z/
       reported($1.to_i, pool)
     when "status", "?", "/status"
@@ -109,6 +112,22 @@ class InboundMessage
       "Thanks, noted #{value}°F. That's right for now (target #{target}°F)."
     end
   end
+
+  def water_reported(value, pool)
+    return "#{value.round}°F doesn't look like a water temperature. #{HELP}" unless (32..110).cover?(value)
+
+    pool.record_water_temp!(value, at: @now)
+    check = PoolCheck.call(pool, notify: false, now: @now, weather: @weather)
+    target = check.recommendation.target_temp
+    if pool.needs_change?(target)
+      pool.record_setpoint!(target, source: "recommended", at: @now)
+      "Thanks, water is #{fmt_degrees(value)}°F. Set the heater to #{target}°F. #{check.recommendation.reason}"
+    else
+      "Thanks, water is #{fmt_degrees(value)}°F. The heater setting is fine as is (#{target}°F)."
+    end
+  end
+
+  def fmt_degrees(value) = (value % 1).zero? ? value.to_i.to_s : value.round(1).to_s
 
   def status(pool)
     check = PoolCheck.call(pool, notify: false, now: @now, weather: @weather)

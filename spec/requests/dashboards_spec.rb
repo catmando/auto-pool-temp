@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Dashboard" do
-  let(:pool) { create(:pool, assumed_setpoint: 88, setpoint_source: "recommended") }
+  let(:pool) { create(:pool, :telegram, assumed_setpoint: 88, setpoint_source: "recommended") }
 
   before { sign_in_as(pool.user) }
 
@@ -11,23 +11,28 @@ RSpec.describe "Dashboard" do
     expect(response).to redirect_to(edit_pool_path)
   end
 
-  it "shows the setting and schedule before any checks" do
+  it "shows the setting, water estimate, and schedule before any checks" do
     get root_path
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("88°F", "assumed: you followed the last alert", "No checks yet", "Austin, Texas, US",
-                                     "alerts go by Text message (Twilio)", "not configured")
+    expect(response.body).to include("88°F", "assumed: you followed the last alert", "~88°F", "assumed to match the heater",
+                                     "No checks yet", "Austin, Texas, US", "alerts go to Telegram")
   end
 
-  it "warns when the alert address isn't confirmed" do
-    pool.update!(phone_verified_at: nil)
+  it "warns when Telegram isn't connected" do
+    pool.update!(telegram_chat_id: nil)
     get root_path
-    expect(response.body).to include("not confirmed yet")
+    expect(response.body).to include("not connected yet")
   end
 
-  it "shows the latest recommendation, chart, and messages" do
-    create(:recommendation, pool: pool, target_temp: 93, reason: "Cold coming.")
+  it "shows the plan chart and a table of upcoming settings" do
+    post checks_path, params: { notify: "0" }
+    get root_path
+    expect(response.body).to include('class="line setpoint"', "Set heater to", "Water then")
+  end
+
+  it "shows recent messages" do
     create(:text_message, pool: pool, body: "Set the heater to 93°F.")
     get root_path
-    expect(response.body).to include("93°F", "Cold coming.", "<svg", "Set the heater to 93°F.")
+    expect(response.body).to include("Set the heater to 93°F.")
   end
 end

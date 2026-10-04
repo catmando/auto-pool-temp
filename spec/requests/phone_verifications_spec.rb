@@ -11,8 +11,6 @@ RSpec.describe "Confirming a phone number" do
     post phone_verification_path
     expect(response).to redirect_to(edit_pool_path)
     expect(flash[:notice]).to include("Code sent")
-    follow_redirect!
-    expect(response.body).to include("one-time-code", "Send a new code")
   end
 
   it "confirms with the right code" do
@@ -48,9 +46,9 @@ RSpec.describe "Confirming a phone number when the carrier blocks the text" do
     expect(flash[:alert]).to include("wasn't delivered", "isn't A2P 10DLC registered")
   end
 
-  it "shows the last code's delivery status in Settings" do
+  it "records the carrier's answer on the message" do
     post phone_verification_path
-    get edit_pool_path
-    expect(response.body).to include("Last code text", "undelivered", "30034")
+    expect(TextMessage.last).to have_attributes(status: "undelivered")
+    expect(TextMessage.last.error).to include("30034")
   end
 end

@@ -1,6 +1,8 @@
 class Pool < ApplicationRecord
   # Local hours at which scheduled checks run, by checks_per_day.
   CHECK_HOURS = { 1 => [ 7 ], 2 => [ 7, 17 ], 3 => [ 7, 13, 19 ] }.freeze
+  # Plan as far ahead as the forecast goes (Open-Meteo: 16 days).
+  FORECAST_DAYS = 16
 
   belongs_to :user
   has_many :recommendations, dependent: :destroy
@@ -18,6 +20,7 @@ class Pool < ApplicationRecord
   validates :hot_air_temp, :hot_pool_temp, :cold_air_temp, :cold_pool_temp, numericality: true
   validates :heat_rate_per_day, :cool_rate_per_day, numericality: { greater_than: 0, less_than_or_equal_to: 50 }
   validates :checks_per_day, inclusion: { in: CHECK_HOURS.keys }
+  validates :warm_day_threshold, numericality: { in: 40..110 }
   validates :min_change, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
   validates :forecast_days, numericality: { only_integer: true, in: 1..16 }
   validates :strategy, inclusion: { in: ->(_) { Recommenders.keys } }
@@ -82,12 +85,42 @@ class Pool < ApplicationRecord
     end
   end
 
+  # All scheduled check times in (from, to] — when the heater setting can change.
+  def check_times_between(from, to)
+    times = []
+    day = from.in_time_zone(zone).to_date
+    while (start = zone.local(day.year, day.month, day.day)) <= to
+      check_hours.each do |hour|
+        time = start + hour.hours
+        times << time if time > from && time <= to
+      end
+      day += 1
+    end
+    times
+  end
+
+  # Best estimate of the actual water temperature at +time+: the last known
+  # value, moved toward the heater setpoint at the pool's heat/cool rates.
+  def estimated_water_temp(time = Time.current)
+    return assumed_setpoint&.to_f if water_temp.nil?
+
+    PoolPhysics.for(self).advance(water_temp.to_f, assumed_setpoint, (time - (water_temp_at || time)) / 3600.0)
+  end
+
+  def record_water_temp!(value, source: "reported", at: Time.current)
+    update!(water_temp: value, water_temp_at: at, water_temp_source: source)
+  end
+
   def needs_change?(target)
     assumed_setpoint.nil? || (target - assumed_setpoint).abs >= min_change
   end
 
+  # Before the setpoint changes, bank the water temp reached under the old one.
   def record_setpoint!(value, source:, at: Time.current)
-    update!(assumed_setpoint: value, setpoint_source: source, setpoint_updated_at: at)
+    estimate = estimated_water_temp(at)
+    attrs = { assumed_setpoint: value, setpoint_source: source, setpoint_updated_at: at }
+    attrs.merge!(water_temp: estimate, water_temp_at: at, water_temp_source: water_temp_at == at ? water_temp_source : "estimated") if estimate
+    update!(attrs)
   end
 
   def recommender_class = Recommenders.for(strategy)

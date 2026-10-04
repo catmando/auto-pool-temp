@@ -49,11 +49,13 @@ RSpec.configure do |config|
   config.around do |example|
     original_weather = Weather.provider
     Weather.provider = FakeWeather.new
+    Geocoder.default = FakeGeocoder.new
     Sms.sender = FakeSmsSender.new
     TelegramBot.sender = FakeSmsSender.new
     example.run
   ensure
     Weather.provider = original_weather
+    Geocoder.default = nil
     Sms.sender = nil
     TelegramBot.sender = nil
   end

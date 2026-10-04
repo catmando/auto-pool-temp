@@ -1,23 +1,33 @@
 require "rails_helper"
 
 RSpec.describe ChartHelper do
-  it "draws an SVG with a line per series and a legend" do
-    html = helper.forecast_chart(create(:recommendation))
-    expect(html).to include("<svg", 'class="line air"', 'class="line desired"', 'class="line plan"', "Ideal pool")
+  let(:rows) do
+    (0..47).map do |h|
+      { "t" => (Time.utc(2026, 10, 1) + h.hours).iso8601, "smoothed_air" => 60, "desired" => 93,
+        "pool" => 90 + h * 0.1, "setpoint" => h < 24 ? 92 : 95 }
+    end
+  end
+
+  it "draws the heater setting, expected water, ideal, and air" do
+    html = helper.plan_chart(rows, zone: ActiveSupport::TimeZone["UTC"])
+    expect(html).to include("<svg", 'class="line setpoint"', 'class="line pool"', 'class="line desired"', 'class="line air"',
+                            "Heater setting", "Expected water", "Ideal pool")
     expect(html.scan("<polyline").size).to eq(4)
   end
 
-  it "labels days" do
-    html = helper.forecast_chart(create(:recommendation))
-    expect(html).to include(">Thu<").or include(">Wed<")
+  it "labels each setting change with its number" do
+    html = helper.plan_chart(rows, zone: ActiveSupport::TimeZone["UTC"])
+    expect(html.scan(/class="setpoint-label"[^>]*>(\d+)</).flatten).to eq(%w[92 95])
   end
 
-  it "omits series that aren't present" do
-    rec = create(:recommendation, details: { "series" => [
-      { "t" => "2026-10-01T00:00:00Z", "air" => 70, "smoothed_air" => 70, "desired" => 88 },
-      { "t" => "2026-10-01T01:00:00Z", "air" => 72, "smoothed_air" => 70, "desired" => 88 }
-    ] })
-    expect(helper.forecast_chart(rec)).not_to include("line plan")
+  it "labels days" do
+    expect(helper.plan_chart(rows, zone: ActiveSupport::TimeZone["UTC"])).to include(">Fri<")
+  end
+
+  it "draws older recommendations without a plan" do
+    html = helper.forecast_chart(create(:recommendation))
+    expect(html).to include('class="line desired"')
+    expect(html).not_to include('class="line setpoint"')
   end
 
   it "handles missing data" do

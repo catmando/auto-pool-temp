@@ -1,79 +1,83 @@
 <% pool = current_pool %>
+<% content_for :title, "Settings" %>
 <h1>Settings</h1>
 <%= render "shared/errors", record: pool %>
+
+<section class="card" id="location"
+         data-controller="location-map"
+         data-location-map-search-url-value="<%= location_search_path %>"
+         <% if pool.located? %>data-location-map-latitude-value="<%= pool.latitude %>" data-location-map-longitude-value="<%= pool.longitude %>"<% end %>>
+  <h2>Location</h2>
+  <p>
+    <% if pool.located? %>
+      <strong><%= pool.location_name.presence || "#{pool.latitude}, #{pool.longitude}" %></strong>
+      <span class="muted">(<%= pool.time_zone %>)</span>
+    <% else %>
+      <span class="error">Not set yet.</span> Enter your ZIP code, or tap the map.
+    <% end %>
+  </p>
+  <form class="inline" data-action="submit->location-map#search">
+    <input type="search" inputmode="numeric" placeholder="ZIP code or city" aria-label="ZIP code or city" data-location-map-target="query">
+    <button type="submit" class="button secondary">Find</button>
+    <button type="button" class="button secondary" data-action="location-map#locate">Use my location</button>
+  </form>
+  <div class="map" data-location-map-target="map"></div>
+  <%= form_with url: location_path, method: :patch, class: "inline" do |f| %>
+    <%= f.hidden_field :latitude, data: { location_map_target: "latitude" } %>
+    <%= f.hidden_field :longitude, data: { location_map_target: "longitude" } %>
+    <%= f.hidden_field :name, data: { location_map_target: "name" } %>
+    <%= f.submit "Confirm location", class: "button", disabled: true, data: { location_map_target: "confirm" } %>
+    <span class="muted" data-location-map-target="status"></span>
+  <% end %>
+</section>
+
 <%= render "delivery", pool: pool %>
 
-<div data-controller="location">
+<%= form_with model: pool, url: pool_path, method: :patch, class: "stack" do |f| %>
   <section class="card">
-    <h2>Location</h2>
-    <div class="inline">
-      <button type="button" class="button secondary" data-action="location#locate">Use my current location</button>
-      <%= form_with url: location_search_path, data: { turbo_frame: "location_results" }, class: "inline" do |f| %>
-        <%= f.search_field :query, placeholder: "City or postal code" %>
-        <%= f.submit "Search", class: "button secondary" %>
-      <% end %>
+    <h2>Ideal pool temperature</h2>
+    <p class="muted">Two points define a straight line from the day's average air temperature to the ideal pool temperature. It keeps going past both points.</p>
+    <div class="fields pairs">
+      <label>Hot day: air (°F) <%= f.number_field :hot_air_temp, step: "any" %></label>
+      <label>Hot day: pool (°F) <%= f.number_field :hot_pool_temp, step: "any" %></label>
+      <label>Cold day: air (°F) <%= f.number_field :cold_air_temp, step: "any" %></label>
+      <label>Cold day: pool (°F) <%= f.number_field :cold_pool_temp, step: "any" %></label>
     </div>
-    <p class="muted" data-location-target="status"></p>
-    <turbo-frame id="location_results"></turbo-frame>
+    <% if pool.hot_air_temp != pool.cold_air_temp %>
+      <% curve = TargetCurve.for(pool) %>
+      <p class="muted">The pool changes <%= curve.slope.round(2) %>°F for every 1°F change in air. At 65°F air the pool should be <%= degrees(curve.pool_temp_for(65)) %>.</p>
+    <% end %>
+    <div class="fields">
+      <label>Warm-day threshold (°F)
+        <%= f.number_field :warm_day_threshold, step: "any" %>
+        <span class="hint">On days warmer than this, a pool a little cooler than ideal is fine; on cooler days, a little warmer is fine. The planner uses that when it can't hit the ideal exactly.</span>
+      </label>
+    </div>
   </section>
 
-  <%= form_with model: pool, url: pool_path, method: :patch, class: "stack" do |f| %>
-    <section class="card">
-      <div class="fields">
-        <label>Pool name <%= f.text_field :name %></label>
-        <label>Location <%= f.text_field :location_name, data: { location_target: "name" } %></label>
-        <label>Latitude <%= f.number_field :latitude, step: "any", data: { location_target: "latitude" } %></label>
-        <label>Longitude <%= f.number_field :longitude, step: "any", data: { location_target: "longitude" } %></label>
-        <label>Time zone <%= f.text_field :time_zone, data: { location_target: "timeZone" } %></label>
-      </div>
-    </section>
+  <section class="card">
+    <h2>How fast the pool changes</h2>
+    <div class="fields">
+      <label>Heats up (°F per day) <%= f.number_field :heat_rate_per_day, step: "any", min: 0.1 %></label>
+      <label>Cools down (°F per day) <%= f.number_field :cool_rate_per_day, step: "any", min: 0.1 %></label>
+    </div>
+  </section>
 
-    <section class="card">
-      <h2>Target curve</h2>
-      <p class="muted">Two points define a straight line from air temperature to pool temperature. Air temperature is the forecast averaged over 24 hours. The line keeps going past both points.</p>
-      <div class="fields pairs">
-        <label>Hot day: air (°F) <%= f.number_field :hot_air_temp, step: "any" %></label>
-        <label>Hot day: pool (°F) <%= f.number_field :hot_pool_temp, step: "any" %></label>
-        <label>Cold day: air (°F) <%= f.number_field :cold_air_temp, step: "any" %></label>
-        <label>Cold day: pool (°F) <%= f.number_field :cold_pool_temp, step: "any" %></label>
-      </div>
-      <% if pool.hot_air_temp != pool.cold_air_temp %>
-        <% curve = TargetCurve.for(pool) %>
-        <p class="muted">The pool changes <%= curve.slope.round(2) %>°F for every 1°F change in air. At 65°F air the pool should be <%= degrees(curve.pool_temp_for(65)) %>.</p>
-      <% end %>
-    </section>
+  <section class="card">
+    <h2>Alerts</h2>
+    <div class="fields">
+      <label>Pool name <%= f.text_field :name %></label>
+      <label>Check and adjust
+        <%= f.select :checks_per_day, Pool::CHECK_HOURS.map { |n, hours| ["#{n}× a day (#{hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.join(', ')})", n] } %>
+      </label>
+      <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
+      <label>Planner
+        <%= f.select :strategy, Recommenders.registry.map { |key, klass| [klass.label, key] } %>
+        <span class="hint"><%= Recommenders.registry.values.map { |k| "#{k.label}: #{k.description}" }.join(" ") %> Compare them in the <%= link_to "Lab", lab_path %>.</span>
+      </label>
+      <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
+    </div>
+  </section>
 
-    <section class="card">
-      <h2>How fast the pool changes</h2>
-      <div class="fields">
-        <label>Heats up (°F per day) <%= f.number_field :heat_rate_per_day, step: "any", min: 0.1 %></label>
-        <label>Cools down (°F per day) <%= f.number_field :cool_rate_per_day, step: "any", min: 0.1 %></label>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Alerts</h2>
-      <div class="fields">
-        <label>Send alerts by <%= f.select :notification_channel, Notifications::CHANNELS.map { |key, c| [c[:label], key] } %></label>
-        <label>Mobile number <%= f.telephone_field :phone_number, placeholder: "+1 555 123 4567" %></label>
-        <label>Checks per day
-          <%= f.select :checks_per_day, Pool::CHECK_HOURS.map { |n, hours| ["#{n} (#{hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.join(', ')})", n] } %>
-        </label>
-        <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
-        <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Algorithm</h2>
-      <div class="fields">
-        <label>Strategy
-          <%= f.select :strategy, Recommenders.registry.map { |key, klass| ["#{klass.label}: #{klass.description}", key] } %>
-        </label>
-        <label>Forecast days to consider <%= f.number_field :forecast_days, min: 1, max: 16 %></label>
-      </div>
-    </section>
-
-    <div><%= f.submit "Save settings", class: "button" %></div>
-  <% end %>
-</div>
+  <div><%= f.submit "Save settings", class: "button" %></div>
+<% end %>

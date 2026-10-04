@@ -1,25 +1,25 @@
 require "rails_helper"
 
-RSpec.describe "Location search" do
+RSpec.describe "Location search (map)" do
   let(:pool) { create(:pool) }
 
   before { sign_in_as(pool.user) }
 
-  it "lists matching places as pickable buttons" do
-    Weather.provider.places = [ Weather::OpenMeteo::Place.new("Austin, Texas, US", 30.27, -97.74, "America/Chicago") ]
-    post location_search_path, params: { query: "Austin" }
-    expect(response.body).to include("location_results", "Austin, Texas, US", "location#pick",
-                                     'data-location-time-zone-param="America/Chicago"')
+  it "returns matching places as JSON" do
+    Geocoder.default.places = [ Geocoder::Place.new("14618, Town of Brighton, New York", 43.1159, -77.562) ]
+    post location_search_path, params: { query: "14618" }, as: :json
+    expect(response.parsed_body).to eq([ { "name" => "14618, Town of Brighton, New York", "latitude" => 43.1159, "longitude" => -77.562 } ])
   end
 
-  it "says when nothing matches" do
-    post location_search_path, params: { query: "zzz" }
-    expect(response.body).to include("No places found")
+  it "returns an empty list when nothing matches" do
+    post location_search_path, params: { query: "zzz" }, as: :json
+    expect(response.parsed_body).to eq([])
   end
 
-  it "shows provider errors" do
-    Weather.provider.error = Weather::OpenMeteo::Error.new("down")
-    post location_search_path, params: { query: "Austin" }
-    expect(response.body).to include("down")
+  it "reports lookup errors" do
+    Geocoder.default.error = Geocoder::Error.new("location lookup failed (503)")
+    post location_search_path, params: { query: "14618" }, as: :json
+    expect(response).to have_http_status(:bad_gateway)
+    expect(response.parsed_body["error"]).to include("503")
   end
 end

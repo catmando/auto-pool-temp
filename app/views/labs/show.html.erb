@@ -1,0 +1,41 @@
+<% content_for :title, "Planner lab" %>
+<h1>Planner lab</h1>
+<p class="muted">
+  Every planner run on your settings (heats <%= current_pool.heat_rate_per_day.to_f %>°F/day,
+  cools <%= current_pool.cool_rate_per_day.to_f %>°F/day, <%= current_pool.checks_per_day %> checks a day,
+  warm-day threshold <%= current_pool.warm_day_threshold.to_f.round %>°F).
+  <strong>Discomfort</strong> is the average °F the water is off from ideal in the direction you'd feel:
+  too cool on a cool day, or too warm on a warm day. Up to <%= Comfort::LEEWAY.round %>°F the other way is free.
+</p>
+
+<% @lab.scenarios.each do |scenario| %>
+  <% runs = @lab.runs(scenario) %>
+  <% best = runs.min_by { |run| run.result.details[:comfort][:mean_discomfort] } %>
+  <section class="card">
+    <h2><%= scenario.title %></h2>
+    <p class="muted"><%= scenario.description %></p>
+    <div class="table-wrap">
+      <table class="scores">
+        <thead><tr><th>Planner</th><th>Avg discomfort</th><th>Worst</th><th>Comfortable hours</th><th>Setting changes</th><th>First setting</th></tr></thead>
+        <tbody>
+          <% runs.each do |run| %>
+            <% comfort = run.result.details[:comfort] %>
+            <% changes = run.result.details[:schedule].each_cons(2).count { |a, b| a[:setpoint] != b[:setpoint] } %>
+            <tr class="<%= 'best' if run == best %>">
+              <td><%= run.label %><%= " (current)" if run.strategy == current_pool.strategy %></td>
+              <td><%= comfort[:mean_discomfort] %>°F</td>
+              <td><%= comfort[:worst_discomfort] %>°F</td>
+              <td><%= (comfort[:comfortable_share] * 100).round %>%</td>
+              <td><%= changes %></td>
+              <td><%= run.result.target %>°F</td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% runs.each do |run| %>
+      <h3><%= run.label %></h3>
+      <%= plan_chart(run.result.details[:series], zone: current_pool.zone) %>
+    <% end %>
+  </section>
+<% end %>

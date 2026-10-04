@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_04_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_04_200000) do
   create_table "pools", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "name", default: "My Pool", null: false
@@ -28,15 +28,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_010000) do
     t.integer "checks_per_day", default: 2, null: false
     t.integer "min_change", default: 1, null: false
     t.boolean "notifications_enabled", default: true, null: false
-    t.string "strategy", default: "lookahead", null: false
-    t.integer "forecast_days", default: 10, null: false
+    t.string "strategy", default: "search", null: false
+    t.integer "forecast_days", default: 16, null: false
     t.integer "assumed_setpoint"
     t.string "setpoint_source"
     t.datetime "setpoint_updated_at"
     t.datetime "last_checked_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "notification_channel", default: "sms", null: false
+    t.string "notification_channel", default: "telegram", null: false
     t.datetime "phone_verified_at"
     t.string "phone_verification_digest"
     t.datetime "phone_verification_sent_at"
@@ -45,6 +45,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_010000) do
     t.datetime "telegram_linked_at"
     t.string "telegram_link_token"
     t.datetime "telegram_link_sent_at"
+    t.decimal "warm_day_threshold", precision: 5, scale: 1, default: "80.0", null: false
+    t.decimal "water_temp", precision: 5, scale: 2
+    t.datetime "water_temp_at"
+    t.string "water_temp_source"
     t.index ["phone_number"], name: "index_pools_on_phone_number"
     t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
     t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true

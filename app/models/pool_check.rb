@@ -16,7 +16,7 @@ class PoolCheck
   def call
     raise ArgumentError, "#{pool.name} has no location set" unless pool.located?
 
-    forecast = @weather.forecast(latitude: pool.latitude, longitude: pool.longitude, days: pool.forecast_days)
+    forecast = @weather.forecast(latitude: pool.latitude, longitude: pool.longitude, days: Pool::FORECAST_DAYS)
     adopt_time_zone(forecast.time_zone)
 
     result = pool.recommender_class.for_pool(pool, forecast: forecast, now: now).call
@@ -44,11 +44,21 @@ class PoolCheck
   def self.message_for(pool, result, previous)
     assumption =
       if previous
-        "I'm assuming it's at #{previous}°F now. If it isn't, reply with the actual setting (e.g. \"84\")."
+        "I'm assuming it's set to #{previous}°F now. If not, reply with the actual setting (e.g. \"84\")."
       else
         "I don't know its current setting, so reply with it (e.g. \"84\") if it's different."
       end
-    "#{pool.name}: set the heater to #{result.target}°F. #{assumption} Why: #{result.reason}"
+    [ "#{pool.name}: set the heater to #{result.target}°F.", result.reason, upcoming_changes(pool, result), assumption ]
+      .compact.join(" ")
+  end
+
+  # "Coming up: Tue 7am 96°F, Wed 5pm 93°F." from the plan, if it has one.
+  def self.upcoming_changes(pool, result, limit: 3)
+    schedule = Array(result.details[:schedule])
+    changes = schedule.each_cons(2).filter_map { |a, b| b if b[:setpoint] != a[:setpoint] }.first(limit)
+    return if changes.empty?
+
+    "Coming up: " + changes.map { |c| "#{Time.zone.parse(c[:t].to_s).in_time_zone(pool.zone).strftime('%a %-l%P')} #{c[:setpoint]}°F" }.join(", ") + "."
   end
 
   private

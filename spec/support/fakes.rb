@@ -21,6 +21,12 @@ class FakeWeather
 
     @places
   end
+
+  def time_zone_for(latitude:, longitude:)
+    raise error if error
+
+    "America/New_York"
+  end
 end
 
 # Stand-in for both the SMS and Telegram senders.
@@ -50,4 +56,25 @@ class FakeSmsSender
   def username = "pool_temp_bot"
 
   def last_body = @deliveries.last&.fetch(:body)
+end
+
+class FakeGeocoder
+  attr_accessor :places, :error, :reverse_name
+
+  def initialize
+    @places = []
+    @reverse_name = "14618, Town of Brighton, New York"
+  end
+
+  def search(_query)
+    raise error if error
+
+    @places
+  end
+
+  def reverse(latitude, longitude)
+    raise error if error
+
+    reverse_name && Geocoder::Place.new(reverse_name, latitude, longitude)
+  end
 end

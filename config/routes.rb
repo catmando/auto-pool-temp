@@ -4,12 +4,15 @@ Rails.application.routes.draw do
   resource :registration, only: %i[new create]
 
   resource :pool, only: %i[edit update]
+  resource :location, only: :update
   resource :location_search, only: :create
   resource :setpoint, only: :update
+  resource :water_temp, only: :update
   resource :phone_verification, only: %i[create update]
   resource :telegram_link, only: %i[create destroy]
   resources :checks, only: :create
   resources :text_messages, only: :index
+  resource :lab, only: :show
 
   # Twilio inbound SMS webhook (configure as the "A message comes in" URL)
   post "twilio/sms" => "twilio_webhooks#create", as: :twilio_sms

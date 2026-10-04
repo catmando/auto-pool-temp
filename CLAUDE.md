@@ -29,7 +29,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 265 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 303 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -64,27 +64,44 @@ Single user for now; sign-up closes after the first account.
 5. `bin/tunnel` now waits for the tunnel to answer `/up` before registering webhooks, because Telegram
    rejects hostnames it can't resolve yet, and retries. The first version registered too early
    (2026-10-04). The fix passes `ruby -c` but hasn't been run end to end.
-6. Tune the algorithm with real data (see below).
+6. Keep tuning the planner with the owner using the Lab page (2026-10-04: the owner wants to iterate).
+7. UI is **Telegram-only** for now (no channel picker or phone field). SMS code paths and specs remain
+   for when A2P registration is done. Sign-up stays closed; the sign-in page says so.
 
 ## Architecture
 - `Weather::Forecast` is a normalized time series of air temps (°F), with
   `temp_at`, `smoothed` (centered 24h moving average) and `.from_daily`.
-- `Weather::OpenMeteo` is the provider (forecast + geocoding, no API key). The app-wide
+- `Weather::OpenMeteo` is the provider (forecast + `time_zone_for`, no API key). `Geocoder` (OpenStreetMap
+  Nominatim) turns ZIP codes or cities into coordinates and names map picks; specs use `FakeGeocoder`.
+  Settings has a Leaflet map (vendored via importmap) with ZIP search, use-my-location, and click-to-pick,
+  then Confirm (`LocationsController`). The app-wide
   provider is `Weather.provider`, which specs swap for `FakeWeather`.
 - `TargetCurve` maps air temp to ideal pool temp from the two anchors.
-- `Recommenders` holds the **swappable algorithms**. `Recommenders.registry` maps key to class.
-  Every class subclasses `Recommenders::Base`, implements `#call`, and returns a
-  `Recommenders::Result(raw_target, reason, details)`. A pool picks one with `pool.strategy`.
-  To add an algorithm: write a class and add it to the registry; nothing else changes.
-  - `linear`: the curve applied to the smoothed air temp now.
-  - `lookahead` (default): a backward pass over the forecast. It clamps the plan to
-    the heat/cool rates so the pool starts changing early enough. It **only anticipates
-    a change that is at least as extreme** (as far from the curve's midpoint) as the
-    current target. So it pre-heats for a cold snap but does not pre-cool *during* a cold
-    snap just because mild weather follows. A forward pass then models lag for the chart.
-    If anticipation is needed before the next scheduled check, it recommends the target
-    being chased (a heater runs flat out until it reaches its setpoint). This
-    asymmetry is a judgment call the owner may want to revisit.
+- `Recommenders` holds the **swappable planners**. `Recommenders.registry` maps key to class; a pool
+  picks one with `pool.strategy`. Each planner produces a **heater schedule**: one whole-degree setting
+  per scheduled check (1–3/day), held until the next check (`Recommenders::SchedulePlanner`).
+  The shared base simulates the water hour by hour from its current temperature (`PoolPhysics`:
+  heats toward the setting at heat_rate, cools toward it at cool_rate, never past it), scores it with
+  `Comfort`, merges multi-day ramps into one setting change (`merge_ramps`: while the water is moving
+  flat out, a further setting does the same thing), and writes the reason text.
+  - `search` (default): dynamic programming over water temperature (0.5°F grid) and integer settings,
+    over the whole 16-day forecast, minimizing total discomfort. It prefers keeping the current setting
+    unless a change helps noticeably (`KEEP_SETTING_SLACK`), and breaks ties toward the next day's ideal.
+  - `follow`: baseline. Each check is set to that period's ideal; it never plans ahead.
+  - Tried and dropped (2026-10-04): `head_start` (rule-of-thumb deadlines; erratic, pre-cooled
+    during a cold snap) and the old continuous `lookahead`/`linear` (ignored the actual water temp,
+    which is why it said nonsense like "has to start heating now").
+- **Comfort model (owner's framing: comfort, not cost):** the ideal comes from the curve applied to the
+  24h-average air. On a day at or above the **warm-day threshold** (default 80°F), water a little *cooler*
+  than ideal feels fine; below it, a little *warmer* feels fine (`Comfort::LEEWAY` = 2°F free in that
+  direction). Off in the other direction counts in full. The owner said there's no right answer to how
+  lopsided this should be, so it's not a setting.
+- **Lab page (`/lab`, `PlannerLab`)**: runs every planner on the live forecast plus made-up weather
+  (cold snap, heat wave, choppy fall), with the pool's own settings, and shows comfort scores and charts.
+  Use it to compare and tune planners. Latest results: Search is best in every scenario.
+- Water temperature: `pool.estimated_water_temp(time)` advances the last known value (reported with
+  "water 86" by reply or on the dashboard, or banked by `record_setpoint!`) toward the heater setting.
+  With nothing known, it's assumed to match the setting.
 - `PoolCheck` fetches the forecast, runs the recommender, saves a `Recommendation`, and
   texts if `pool.needs_change?` (min_change hysteresis). After a successful text it
   assumes the user followed it. `notify: false` gives a preview.

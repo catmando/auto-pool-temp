@@ -152,7 +152,7 @@ RSpec.describe Pool do
   end
 
   it "resolves its recommender class" do
-    expect(build(:pool, strategy: "linear").recommender_class).to eq(Recommenders::Linear)
+    expect(build(:pool, strategy: "follow").recommender_class).to eq(Recommenders::Follow)
   end
 end
 
@@ -179,5 +179,33 @@ RSpec.describe Pool, "alert delivery" do
     pool = create(:pool)
     pool.update!(name: "Renamed")
     expect(pool.reload).to be_phone_verified
+  end
+end
+
+RSpec.describe Pool, "water temperature" do
+  let(:pool) { create(:pool, assumed_setpoint: 90, heat_rate_per_day: 3, cool_rate_per_day: 2) }
+
+  it "assumes the water matches the heater when nothing was reported" do
+    expect(pool.estimated_water_temp).to eq(90)
+    expect(build(:pool, assumed_setpoint: nil).estimated_water_temp).to be_nil
+  end
+
+  it "moves a reading toward the heater setting over time" do
+    pool.record_water_temp!(84, at: 1.day.ago)
+    expect(pool.estimated_water_temp).to be_within(0.01).of(87)
+  end
+
+  it "banks the water temp reached so far when the setting changes" do
+    pool.record_water_temp!(84, at: 1.day.ago)
+    pool.record_setpoint!(80, source: "user_reported")
+    expect(pool.reload).to have_attributes(water_temp_source: "estimated")
+    expect(pool.water_temp.to_f).to be_within(0.01).of(87)
+    expect(pool.estimated_water_temp(1.day.from_now)).to be_within(0.01).of(85)
+  end
+
+  it "lists check times over a period" do
+    zone = ActiveSupport::TimeZone["America/Chicago"]
+    times = pool.check_times_between(zone.local(2026, 10, 1, 8), zone.local(2026, 10, 2, 8))
+    expect(times).to eq([ zone.local(2026, 10, 1, 17), zone.local(2026, 10, 2, 7) ])
   end
 end

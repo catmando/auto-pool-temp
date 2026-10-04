@@ -64,3 +64,11 @@ RSpec.describe Weather::OpenMeteo do
     end
   end
 end
+
+RSpec.describe Weather::OpenMeteo, "#time_zone_for" do
+  it "asks Open-Meteo for the location's time zone" do
+    stub_request(:get, %r{api.open-meteo.com/v1/forecast}).with(query: hash_including("timezone" => "auto"))
+      .to_return(body: { timezone: "America/New_York" }.to_json)
+    expect(described_class.new.time_zone_for(latitude: 43.1, longitude: -77.6)).to eq("America/New_York")
+  end
+end

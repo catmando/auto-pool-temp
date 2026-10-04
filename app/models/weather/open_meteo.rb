@@ -25,6 +25,12 @@ module Weather
       Forecast.new(points, time_zone: json["timezone"], source: "open-meteo")
     end
 
+    # IANA time zone name for a location, e.g. "America/New_York".
+    def time_zone_for(latitude:, longitude:)
+      get_json(FORECAST_URL, latitude: latitude, longitude: longitude, current: "temperature_2m",
+                             timezone: "auto", forecast_days: 1)["timezone"]
+    end
+
     def search(query)
       json = get_json(GEOCODING_URL, name: query, count: 5, language: "en", format: "json")
       Array(json["results"]).map do |r|

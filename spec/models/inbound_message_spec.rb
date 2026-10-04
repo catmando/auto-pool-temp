@@ -136,3 +136,30 @@ RSpec.describe InboundMessage do
     end
   end
 end
+
+RSpec.describe InboundMessage, "water reports" do
+  let!(:pool) { create(:pool, :telegram, assumed_setpoint: 91) }
+  let(:sender) { FakeSmsSender.new }
+
+  def reply(body) = described_class.handle(channel: "telegram", from: "424242", body: body, sender: sender,
+                                           weather: FakeWeather.new(forecast: flat_forecast(65)))
+
+  %w[water\ 86 w86 Water\ is\ 86.5F pool:\ 86].each do |body|
+    it "understands #{body.inspect}" do
+      reply(body)
+      expect(pool.reload.water_temp_source).to eq("reported")
+      expect(sender.last_body).to start_with("Thanks, water is 86")
+    end
+  end
+
+  it "re-plans from the reported water temperature" do
+    pool.update!(assumed_setpoint: 84)
+    reply("water 80")
+    expect(sender.last_body).to include("Set the heater to")
+  end
+
+  it "rejects implausible readings" do
+    reply("water 200")
+    expect(sender.last_body).to include("doesn't look like a water temperature")
+  end
+end

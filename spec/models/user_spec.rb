@@ -21,6 +21,7 @@ RSpec.describe User do
     expect(pool).to be_persisted
     expect(pool).to have_attributes(hot_air_temp: 95, hot_pool_temp: 80, cold_air_temp: 35, cold_pool_temp: 102,
                                     heat_rate_per_day: 3, cool_rate_per_day: 2, checks_per_day: 2,
-                                    strategy: "lookahead", assumed_setpoint: nil)
+                                    strategy: "search", notification_channel: "telegram",
+                                    warm_day_threshold: 80, assumed_setpoint: nil)
   end
 end

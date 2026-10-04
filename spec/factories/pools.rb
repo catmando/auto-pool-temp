@@ -13,6 +13,8 @@ FactoryBot.define do
     time_zone { "America/Chicago" }
     phone_number { "+15125550100" }
     phone_verified_at { Time.current }
+    # SMS stays supported in the backend; most specs exercise it. See :telegram.
+    notification_channel { "sms" }
 
     trait :unverified do
       phone_verified_at { nil }

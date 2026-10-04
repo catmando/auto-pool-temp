@@ -1,11 +1,22 @@
 <% pool = current_pool %>
-<div class="grid2">
+<% water = pool.estimated_water_temp %>
+<div class="grid3">
   <section class="card">
     <h2>Heater setting</h2>
     <p class="big"><%= degrees(pool.assumed_setpoint) %></p>
     <p class="muted"><%= setpoint_source_label(pool.setpoint_source) %><% if pool.setpoint_updated_at %>, <%= local_time(pool.setpoint_updated_at) %><% end %></p>
     <%= form_with url: setpoint_path, method: :patch, class: "inline" do |f| %>
       <label>Actually set to <%= f.number_field :assumed_setpoint, min: 40, max: 110, value: pool.assumed_setpoint, class: "short" %>°F</label>
+      <%= f.submit "Update", class: "button secondary" %>
+    <% end %>
+  </section>
+
+  <section class="card">
+    <h2>Water</h2>
+    <p class="big"><%= water ? "~#{degrees(water)}" : "—" %></p>
+    <p class="muted"><%= water_source_label(pool) %></p>
+    <%= form_with url: water_temp_path, method: :patch, class: "inline" do |f| %>
+      <label>Measured <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
       <%= f.submit "Update", class: "button secondary" %>
     <% end %>
   </section>
@@ -31,8 +42,21 @@
 
 <% if @recommendation %>
   <section class="card">
-    <h2>Forecast &amp; plan</h2>
+    <h2>Plan</h2>
     <%= forecast_chart(@recommendation) %>
+    <% changes = plan_changes(@recommendation) %>
+    <% if changes.any? %>
+      <div class="table-wrap">
+        <table class="scores">
+          <thead><tr><th>When</th><th>Set heater to</th><th>Water then</th><th>Ideal then</th></tr></thead>
+          <tbody>
+            <% changes.each do |c| %>
+              <tr><td><%= c[:now] ? "Now" : local_time(c[:time]) %></td><td><strong><%= c[:setpoint] %>°F</strong></td><td>~<%= degrees(c[:water]) %></td><td><%= degrees(c[:ideal]) %></td></tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
   </section>
 <% end %>
 
@@ -41,14 +65,9 @@
   <p>
     <%= pool.location_name.presence || "#{pool.latitude}, #{pool.longitude}" %> (<%= pool.time_zone %>).
     Checks at <%= pool.check_hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.to_sentence %> local time;
-    alerts go by <%= pool.channel_label %>
-    <% if !pool.notifications_enabled? %>(paused)<% elsif !pool.contact_verified? %>(<%= link_to "not confirmed yet", edit_pool_path(anchor: "delivery") %>, so nothing is sent)<% end %>.
+    alerts go to Telegram<% if !pool.notifications_enabled? %> (paused)<% elsif !pool.contact_verified? %> (<%= link_to "not connected yet", edit_pool_path(anchor: "delivery") %>, so nothing is sent)<% end %>.
   </p>
-  <p class="muted">
-    Last scheduled check: <%= local_time(pool.last_checked_at) %>.
-    Twilio: <%= Sms::TwilioSender.configured? ? "configured" : "not configured" %>.
-    Telegram bot: <%= TelegramBot.configured? ? "configured" : "not configured" %>.
-  </p>
+  <p class="muted">Last scheduled check: <%= local_time(pool.last_checked_at) %>.</p>
 </section>
 
 <% if @text_messages.any? %>

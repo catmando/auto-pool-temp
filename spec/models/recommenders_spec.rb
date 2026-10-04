@@ -2,8 +2,8 @@ require "rails_helper"
 
 RSpec.describe Recommenders do
   it "looks strategies up by key" do
-    expect(described_class.for("lookahead")).to eq(Recommenders::Lookahead)
-    expect(described_class.for(:linear)).to eq(Recommenders::Linear)
+    expect(described_class.for("search")).to eq(Recommenders::Search)
+    expect(described_class.for(:follow)).to eq(Recommenders::Follow)
   end
 
   it "raises for unknown strategies" do

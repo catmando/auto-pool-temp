@@ -10,19 +10,19 @@ RSpec.describe PoolCheck do
 
   it "fetches the forecast for the pool's location" do
     check
-    expect(weather.requests).to eq([ { latitude: pool.latitude, longitude: pool.longitude, days: 10 } ])
+    expect(weather.requests).to eq([ { latitude: pool.latitude, longitude: pool.longitude, days: 16 } ])
   end
 
   it "records a recommendation" do
     result = check
-    expect(result.recommendation).to have_attributes(strategy: "lookahead", target_temp: 91, assumed_setpoint: 85)
+    expect(result.recommendation).to have_attributes(strategy: "search", target_temp: 91, assumed_setpoint: 85)
     expect(result.recommendation.reason).to include("91°F")
     expect(result.recommendation.series).not_to be_empty
   end
 
   it "uses the pool's chosen strategy" do
-    pool.update!(strategy: "linear")
-    expect(check.recommendation.strategy).to eq("linear")
+    pool.update!(strategy: "follow")
+    expect(check.recommendation.strategy).to eq("follow")
   end
 
   context "when the setting should change" do
@@ -30,7 +30,7 @@ RSpec.describe PoolCheck do
       check
       expect(sender.deliveries.size).to eq(1)
       body = sender.deliveries.first[:body]
-      expect(body).to include("set the heater to 91°F", "assuming it's at 85°F", "reply with the actual setting")
+      expect(body).to include("set the heater to 91°F", "assuming it's set to 85°F", "reply with the actual setting")
     end
 
     it "assumes the user follows the advice" do
@@ -143,5 +143,23 @@ RSpec.describe PoolCheck, "channels" do
   it "doesn't alert when Telegram is chosen but not linked" do
     pool = create(:pool, notification_channel: "telegram")
     expect(described_class.call(pool, weather: weather)).not_to be_notified
+  end
+end
+
+RSpec.describe PoolCheck, "planning" do
+  let(:pool) { create(:pool, assumed_setpoint: 91) }
+
+  it "plans from the estimated water temperature" do
+    pool.record_water_temp!(84)
+    check = described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)), notify: false)
+    expect(check.recommendation.details["water_now"]).to be_within(0.5).of(84)
+    expect(check.recommendation.reason).to include("heat it up from about 84°F")
+  end
+
+  it "lists upcoming changes in the alert" do
+    snap = hourly_forecast { |h| (3 * 24...5 * 24).cover?(h) ? 40 : 65 }
+    pool.update!(assumed_setpoint: nil)
+    described_class.call(pool, weather: FakeWeather.new(forecast: snap))
+    expect(Sms.sender.last_body).to include("set the heater to", "Coming up:")
   end
 end

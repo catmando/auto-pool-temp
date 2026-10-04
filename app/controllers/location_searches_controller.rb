@@ -1,11 +1,9 @@
+# ZIP code / city lookup for the settings map (JSON).
 class LocationSearchesController < ApplicationController
   def create
-    @query = params[:query].to_s.strip
-    @places = @query.present? ? Weather.provider.search(@query) : []
-  rescue Weather::OpenMeteo::Error => e
-    @places = []
-    @error = e.message
-  ensure
-    render layout: false unless performed?
+    places = Geocoder.instance.search(params[:query])
+    render json: places.map(&:to_h)
+  rescue Geocoder::Error => e
+    render json: { error: e.message }, status: :bad_gateway
   end
 end

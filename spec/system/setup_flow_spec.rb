@@ -1,67 +1,49 @@
 require "rails_helper"
 
 RSpec.describe "Setting up the app" do
-  it "goes from sign-up through settings and phone confirmation to a first alert" do
+  before { allow(TelegramBot).to receive(:configured?).and_return(true) }
+
+  it "goes from sign-up through location and Telegram to a first alert" do
     visit root_path
     fill_in "Email", with: "me@example.com"
     fill_in "Password", with: "password123"
     fill_in "Confirm password", with: "password123"
     click_button "Create account"
-
     expect(page).to have_content("Set up your pool")
-    fill_in "Location", with: "Austin, Texas, US"
-    fill_in "Latitude", with: "30.27"
-    fill_in "Longitude", with: "-97.74"
-    fill_in "Time zone", with: "America/Chicago"
-    fill_in "Mobile number", with: "512-555-0100"
+    expect(page).to have_content("Not set yet")
+
+    # The map fills these hidden fields (JavaScript); submit them as it would.
+    page.driver.submit :patch, location_path, latitude: "43.1159", longitude: "-77.562", name: "14618, Town of Brighton, New York"
+    expect(page).to have_content("Location set to 14618, Town of Brighton, New York.")
+    expect(page).to have_content("America/New_York")
+
     fill_in "Heats up (°F per day)", with: "4"
     click_button "Save settings"
-
-    expect(page).to have_content("We texted a code to +15125550100")
-    expect(page).to have_content("Not confirmed yet")
-    fill_in "Code", with: Sms.sender.last_body[/\d{6}/]
-    click_button "Confirm"
-    expect(page).to have_content("Phone number confirmed.")
-    expect(page).to have_content("Confirmed ✓")
-
-    click_link "Dashboard"
-    expect(page).to have_content("not yet known")
-    click_button "Check & alert if needed"
-
-    expect(page).to have_content("Recommended 91°F and sent an alert by Text message (Twilio).")
-    expect(page).to have_content("assumed: you followed the last alert")
-    expect(page).to have_css("svg.chart")
-    expect(Sms.sender.deliveries.last[:to]).to eq("+15125550100")
-
-    fill_in "Actually set to", with: "86"
-    click_button "Update"
-    expect(page).to have_content("the heater is set to 86°F")
-
-    click_link "Messages"
-    expect(page).to have_content("set the heater to 91°F")
-  end
-
-  it "connects Telegram with a one-time link" do
-    allow(TelegramBot).to receive(:configured?).and_return(true)
-    user = create(:user)
-    user.pool.update!(latitude: 30.27, longitude: -97.74, time_zone: "America/Chicago")
-    sign_in_as(user)
-
-    visit edit_pool_path
-    select "Telegram", from: "Send alerts by"
-    click_button "Save settings"
-    expect(page).to have_content("Confirm where alerts should go")
+    expect(page).to have_content("Connect Telegram to start getting alerts")
 
     click_button "Connect Telegram"
-    link = find_link("Open Telegram to connect")[:href]
-    token = link[/start=(.+)\z/, 1]
-
-    # What Telegram does when the user taps Start:
-    InboundMessage.handle(channel: "telegram", from: "9001", body: "/start #{token}")
+    token = find_link("Open Telegram to connect")[:href][/start=(.+)\z/, 1]
+    InboundMessage.handle(channel: "telegram", from: "9001", body: "/start #{token}") # what Telegram does on Start
     expect(TelegramBot.sender.last_body).to start_with("Connected!")
 
-    visit edit_pool_path
-    expect(page).to have_content("Connected ✓")
-    expect(user.pool.reload).to be_notifiable
+    click_link "Dashboard"
+    click_button "Check & alert if needed"
+    expect(page).to have_content("sent an alert by Telegram")
+    expect(TelegramBot.sender.deliveries.last).to include(to: "9001")
+    expect(page).to have_css("svg.chart .line.pool")
+    expect(page).to have_content("Set heater to")
+
+    fill_in "Measured", with: "86"
+    within(:xpath, "//section[.//h2[text()='Water']]") { click_button "Update" }
+    expect(page).to have_content("the water is 86°F")
+
+    click_link "Lab"
+    expect(page).to have_content("Planner lab")
+  end
+
+  it "explains on the sign-in page that sign-up is closed" do
+    create(:user)
+    visit new_session_path
+    expect(page).to have_content("New accounts are closed")
   end
 end
