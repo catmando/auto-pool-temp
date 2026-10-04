@@ -114,8 +114,9 @@ Single user for now; sign-up closes after the first account.
 ```sh
 bundle install
 bin/rails db:prepare
-bin/dev                  # foreman (Procfile.dev): web + scheduler + SMS tunnel, http://localhost:3000
-NO_TUNNEL=1 bin/dev      # without the tunnel
+bin/dev                  # local web app, http://localhost:3000 (no scheduler; production runs it)
+TUNNEL=1 bin/dev         # also take over the bot webhooks (hand them back afterwards, see above)
+fly deploy               # ship to https://auto-pool-temp.fly.dev
 bundle exec rspec        # full suite
 bin/ci                   # rubocop + audits + brakeman + rspec
 ```
