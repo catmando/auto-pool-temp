@@ -21,6 +21,6 @@ RSpec.describe Comfort do
 
   it "scores a series" do
     rows = [ { pool: 90, desired: 90, smoothed_air: 60 }, { pool: 86, desired: 90, smoothed_air: 60 } ]
-    expect(described_class.score(rows, warm_threshold: 80)).to eq(mean_discomfort: 2.0, worst_discomfort: 4.0, comfortable_share: 0.5)
+    expect(described_class.score(rows, warm_threshold: 80)).to eq(mean_error: 2.0, mean_discomfort: 2.0, worst_discomfort: 4.0, comfortable_share: 0.5)
   end
 end

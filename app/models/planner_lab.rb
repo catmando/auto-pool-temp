@@ -75,6 +75,11 @@ class PlannerLab
 
   def made_up(key, pattern)
     start = now.in_time_zone(pool.zone).beginning_of_day
+    Scenario.new(key, pattern[:title], pattern[:description], self.class.pattern_forecast(pattern, start: start, time_zone: pool.time_zone))
+  end
+
+  # 16 days of hourly air temps from a pattern's daily averages, starting at +start+.
+  def self.pattern_forecast(pattern, start:, time_zone:)
     means = pattern[:days]
     points = (0...(means.size * 24)).map do |h|
       day = h / 24.0
@@ -86,7 +91,6 @@ class PlannerLab
       swing = SWING * Math.sin(2 * Math::PI * ((h % 24) - 9) / 24.0) # peaks ~3pm, lowest ~3am
       Weather::Forecast::Point.new(start + h.hours, mean + swing)
     end
-    Scenario.new(key, pattern[:title], pattern[:description],
-                 Weather::Forecast.new(points, time_zone: pool.time_zone, source: "made-up"))
+    Weather::Forecast.new(points, time_zone: time_zone, source: "made-up")
   end
 end

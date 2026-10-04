@@ -46,6 +46,14 @@ RSpec.describe "Dashboard" do
       end
     end
 
+    it "re-plans when the plan was made before the app started (e.g. a deploy changed the planner)" do
+      get root_path
+      allow(Rails.application.config).to receive(:booted_at).and_return(1.second.from_now)
+      travel 2.seconds do
+        expect { get root_path }.to change(pool.recommendations, :count).by(1)
+      end
+    end
+
     it "re-plans when the plan is over an hour old" do
       get root_path
       travel 61.minutes do

@@ -1,0 +1,30 @@
+# Planner error per benchmark scenario (°F). Lower is better.
+#   mean_error:      average |expected water - ideal|
+#   mean_discomfort: the same, with the comfortable direction counting less
+# Checked by spec/models/planner_benchmark_spec.rb; update with `bin/rails planner:record_baseline`.
+search:
+  rochester_2026_10_04:
+    mean_error: 0.67
+    mean_discomfort: 0.28
+  cold_snap:
+    mean_error: 0.81
+    mean_discomfort: 0.34
+  heat_wave:
+    mean_error: 0.56
+    mean_discomfort: 0.47
+  choppy:
+    mean_error: 0.68
+    mean_discomfort: 0.21
+follow:
+  rochester_2026_10_04:
+    mean_error: 0.75
+    mean_discomfort: 0.4
+  cold_snap:
+    mean_error: 1.17
+    mean_discomfort: 0.82
+  heat_wave:
+    mean_error: 0.87
+    mean_discomfort: 0.79
+  choppy:
+    mean_error: 0.92
+    mean_discomfort: 0.66

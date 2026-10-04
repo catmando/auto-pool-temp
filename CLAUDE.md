@@ -29,7 +29,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 324 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 335 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -102,11 +102,18 @@ Single user for now; sign-up closes after the first account.
 - **Lab page (`/lab`, `PlannerLab`)**: runs every planner on the live forecast plus made-up weather
   (cold snap, heat wave, choppy fall), with the pool's own settings, and shows comfort scores and charts.
   Use it to compare and tune planners. Latest results: Search is best in every scenario.
-- **Test mode** (`ForecastSnapshot`, `pool.test_snapshot`): plan against a saved forecast with "now" frozen at
+- **Planner benchmark** (`PlannerBenchmark`, `spec/models/planner_benchmark_spec.rb`): fixed scenarios (the
+    Rochester Oct 4 forecast in `spec/fixtures/forecasts/`, plus the made-up patterns on fixed dates, with the owner's
+    settings). The spec fails if the default planner's **mean_error** (average |expected water - ideal|, the owner's
+    headline metric) or **mean_discomfort** gets worse than `spec/fixtures/planner_baseline.yml` on any scenario.
+    `bin/rails planner:benchmark` compares; `bin/rails planner:record_baseline` accepts improvements (commit the diff).
+    To add a scenario, drop a forecast JSON in `spec/fixtures/forecasts/` and re-record.
+  - **Test mode** (`ForecastSnapshot`, `pool.test_snapshot`): plan against a saved forecast with "now" frozen at
     `taken_at` and no alerts; the scheduler skips test-mode pools. Save from Settings (live forecast, or the
     one behind the current plan) or `bin/rails "snapshots:from_recommendation[ID,NAME]"`. Snapshot 1 in
     production is the owner's Oct 4 3pm Rochester forecast (the Friday-overshoot case).
-  - The dashboard re-plans by itself (no alert) when the plan is >1h old or older than `pool.updated_at`
+  - The dashboard re-plans by itself (no alert) when the plan is >1h old, made before the app booted (so a deploy
+    with planner changes shows up on the next refresh), or older than `pool.updated_at`
     (settings, heater setting, water reading, test mode). The "Preview now" button is gone.
 - Water temperature: `pool.estimated_water_temp(time)` advances the last known value (reported with
   "water 86" by reply or on the dashboard, or banked by `record_setpoint!`) toward the heater setting.

@@ -18,6 +18,7 @@ class DashboardsController < ApplicationController
   def stale?(recommendation)
     return true if recommendation.nil?
     return true if recommendation.details&.dig("test_snapshot_id") != current_pool.test_snapshot_id
+    return true if recommendation.created_at < Rails.application.config.booted_at # made by older code
     return false if current_pool.test_mode? && recommendation.created_at >= current_pool.updated_at
 
     recommendation.created_at < PLAN_MAX_AGE.ago || recommendation.created_at < current_pool.updated_at
