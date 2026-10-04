@@ -36,6 +36,14 @@ RSpec.configure do |config|
   config.include AuthHelpers, type: :system
 
   config.before(:each, type: :system) { driven_by :rack_test }
+  config.before { TextMessage.delivery_poll_wait = 0 }
+
+  # Specs must not depend on real secrets in config/credentials.yml.enc.
+  config.before do
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig).with(:twilio, anything).and_return(nil)
+    allow(Rails.application.credentials).to receive(:dig).with(:telegram, anything).and_return(nil)
+  end
 
   # Never hit real services from specs: swap in fakes app-wide.
   config.around do |example|

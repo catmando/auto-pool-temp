@@ -15,6 +15,15 @@ module Sms
       raise Error, e.message
     end
 
+    # Twilio accepts a message as "queued"; carriers can still reject it later.
+    # Returns [current Delivery, Twilio error code or nil].
+    def lookup(sid)
+      message = client.messages(sid).fetch
+      [ Delivery.new(sid: sid, status: message.status), message.error_code ]
+    rescue Twilio::REST::TwilioError => e
+      raise Error, e.message
+    end
+
     private
 
     def client

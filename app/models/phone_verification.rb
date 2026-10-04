@@ -5,6 +5,8 @@ class PhoneVerification
   RESEND_WAIT = 30.seconds
   MAX_ATTEMPTS = 5
 
+  CODE_PREFIX = "Auto Pool Temp code:".freeze
+
   Error = Class.new(StandardError)
 
   def initialize(pool, now: Time.current)
@@ -22,7 +24,7 @@ class PhoneVerification
     @pool.update!(phone_verification_digest: BCrypt::Password.create(code),
                   phone_verification_sent_at: @now, phone_verification_attempts: 0)
     message = TextMessage.deliver(pool: @pool, channel: "sms", sender: sender,
-      body: "Auto Pool Temp code: #{code}. Enter it in Settings or reply with it. Expires in #{CODE_TTL.inspect}.")
+      body: "#{CODE_PREFIX} #{code}. Enter it in Settings or reply with it. Expires in #{CODE_TTL.inspect}.")
     raise Error, "Couldn't send the code: #{message.error}" if message.failed?
 
     message
@@ -42,6 +44,12 @@ class PhoneVerification
   end
 
   def pending? = pending_digest.present? && !expired?
+
+  # The most recent code text, with its delivery status refreshed from Twilio.
+  def last_code_message
+    @pool.text_messages.where(channel: "sms", direction: "outbound")
+         .where("body LIKE ?", "#{CODE_PREFIX}%").recent.first&.refresh_delivery_status!
+  end
 
   def failure_reason
     if pending_digest.nil? then "No code is waiting. Send a new one."

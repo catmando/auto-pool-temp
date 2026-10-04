@@ -29,7 +29,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 255 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 265 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -55,9 +55,14 @@ Single user for now; sign-up closes after the first account.
 3. SMS for real: upgrade Twilio, then register A2P 10DLC (or verify a toll-free number).
    **`config/master.key` is gitignored. Copy it to other machines yourself, or the
    credentials won't decrypt.**
-4. TODO: Twilio status callbacks. Today a text Twilio accepts but later marks undelivered
-   still counts as "followed" (assumed_setpoint gets updated).
-5. Tune the algorithm with real data (see below).
+4. Partly done: SMS delivery status is looked up from Twilio (`TextMessage#refresh_delivery_status!`)
+   on the Settings page, the Messages page, and right after sending a code, with error codes explained
+   in plain English. Still TODO: PoolCheck assumes the user followed an alert as soon as Twilio
+   *queues* it, so a later carrier rejection doesn't undo that (fix with a status callback or a recheck).
+5. `bin/tunnel` now waits for the tunnel to answer `/up` before registering webhooks, because Telegram
+   rejects hostnames it can't resolve yet, and retries. The first version registered too early
+   (2026-10-04). The fix passes `ruby -c` but hasn't been run end to end.
+6. Tune the algorithm with real data (see below).
 
 ## Architecture
 - `Weather::Forecast` is a normalized time series of air temps (°F), with

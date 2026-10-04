@@ -14,6 +14,30 @@ root = File.expand_path("..", __dir__)
 cloudflared = ENV.fetch("CLOUDFLARED", "cloudflared")
 abort "cloudflared not found. Install it with: brew install cloudflared" unless system("which #{cloudflared} > /dev/null")
 
+require "net/http"
+
+# A new quick-tunnel hostname takes a few seconds to resolve, and Telegram
+# refuses to register a webhook whose host it can't resolve. So wait until the
+# tunnel answers (the app's /up check) before registering, and retry.
+def register_webhooks(url, root)
+  deadline = Time.now + 90
+  until Time.now > deadline
+    break if (Net::HTTP.get_response(URI("#{url}/up")).is_a?(Net::HTTPSuccess) rescue false)
+
+    sleep 3
+  end
+
+  3.times do |attempt|
+    if system(File.join(root, "bin/rails"), "notify:webhooks[#{url}]", chdir: root)
+      puts "Replies (Telegram / SMS) now reach this machine."
+      return
+    end
+    puts "Retrying webhook registration..." if attempt < 2
+    sleep 10
+  end
+  puts "Some webhooks weren't updated (see above). The tunnel is still up; run: bin/rails 'notify:webhooks[#{url}]'"
+end
+
 pid = nil
 stopping = false
 %w[INT TERM].each do |signal|
@@ -34,11 +58,8 @@ until stopping
 
     registered = true
     puts "Tunnel: #{url} -> http://localhost:#{port}"
-    if system(File.join(root, "bin/rails"), "notify:webhooks[#{url}]", chdir: root)
-      puts "Replies (Telegram / SMS) now reach this machine."
-    else
-      puts "Some webhooks weren't updated (see above). The tunnel is still up."
-    end
+    # Register in a thread so cloudflared's output keeps draining meanwhile.
+    Thread.new { register_webhooks(url, root) }
   end
 
   Process.wait(pid)

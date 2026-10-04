@@ -43,6 +43,12 @@
           <% end %>
           <p class="muted">Sent <%= local_time(pool.phone_verification_sent_at, pool) %>. You can also reply to the text with the code.</p>
         <% end %>
+        <% if (last = verification.last_code_message) %>
+          <p class="<%= last.failed? ? 'error' : 'muted' %>">
+            Last code text: <strong><%= last.status %></strong><% if last.error.present? %>: <%= last.error %><% end %>
+            <% if last.delivery_pending? %>(reload to update)<% end %>
+          </p>
+        <% end %>
         <%= button_to(verification.pending? ? "Send a new code" : "Text me a code", phone_verification_path, class: "button secondary") %>
       <% end %>
     </div>

@@ -34,3 +34,23 @@ RSpec.describe "Confirming a phone number" do
     expect(flash[:alert]).to include("30034")
   end
 end
+
+RSpec.describe "Confirming a phone number when the carrier blocks the text" do
+  let(:pool) { create(:pool, :unverified) }
+
+  before do
+    sign_in_as(pool.user)
+    Sms.sender.lookup_result = [ "undelivered", 30034 ]
+  end
+
+  it "says the code wasn't delivered, and why" do
+    post phone_verification_path
+    expect(flash[:alert]).to include("wasn't delivered", "isn't A2P 10DLC registered")
+  end
+
+  it "shows the last code's delivery status in Settings" do
+    post phone_verification_path
+    get edit_pool_path
+    expect(response.body).to include("Last code text", "undelivered", "30034")
+  end
+end

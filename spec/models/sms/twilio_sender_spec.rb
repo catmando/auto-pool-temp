@@ -61,3 +61,14 @@ RSpec.describe Sms do
     expect(Sms::LogSender.new.deliver(to: "+1", body: "x")).to eq(Sms::Delivery.new(sid: nil, status: "logged"))
   end
 end
+
+RSpec.describe Sms::TwilioSender, "#lookup" do
+  it "fetches the message's current status and error code" do
+    context = double(fetch: double(status: "undelivered", error_code: 30034))
+    client = double("client")
+    allow(client).to receive(:messages).with("SM1").and_return(context)
+    delivery, code = described_class.new(client: client).lookup("SM1")
+    expect(delivery).to eq(Sms::Delivery.new(sid: "SM1", status: "undelivered"))
+    expect(code).to eq(30034)
+  end
+end

@@ -39,6 +39,14 @@ class FakeSmsSender
     Sms::Delivery.new(sid: "SM#{@deliveries.size}", status: "queued")
   end
 
+  # Twilio-style status lookup; set +lookup_result+ to [status, error_code].
+  attr_accessor :lookup_result
+
+  def lookup(sid)
+    status, code = lookup_result || [ "delivered", nil ]
+    [ Sms::Delivery.new(sid: sid, status: status), code ]
+  end
+
   def username = "pool_temp_bot"
 
   def last_body = @deliveries.last&.fetch(:body)

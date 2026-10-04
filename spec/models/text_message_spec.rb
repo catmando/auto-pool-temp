@@ -54,3 +54,51 @@ RSpec.describe TextMessage, "channels" do
     expect(message.error).to include("no Telegram address")
   end
 end
+
+RSpec.describe TextMessage, "delivery status" do
+  let(:pool) { create(:pool) }
+  let(:sender) { FakeSmsSender.new }
+  let(:message) { described_class.deliver(pool: pool, body: "Hi", sender: sender) }
+
+  it "starts out pending" do
+    expect(message).to be_delivery_pending
+  end
+
+  it "records a carrier rejection in plain English" do
+    sender.lookup_result = [ "undelivered", 30034 ]
+    message.refresh_delivery_status!(sender: sender)
+    expect(message.reload).to have_attributes(status: "undelivered")
+    expect(message.error).to include("30034", "isn't A2P 10DLC registered")
+    expect(message).to be_failed
+    expect(message).not_to be_delivery_pending
+  end
+
+  it "links to Twilio docs for unknown codes" do
+    expect(described_class.describe_twilio_error(12345)).to include("twilio.com/docs/api/errors/12345")
+    expect(described_class.describe_twilio_error(nil)).to be_nil
+  end
+
+  it "marks delivered texts" do
+    message.refresh_delivery_status!(sender: sender)
+    expect(message.reload).to have_attributes(status: "delivered", error: nil)
+  end
+
+  it "leaves final, inbound, and Telegram messages alone" do
+    expect(sender).not_to receive(:lookup)
+    create(:text_message, pool: pool, status: "delivered", provider_sid: "SM1").refresh_delivery_status!(sender: sender)
+    create(:text_message, pool: pool, direction: "inbound", status: "received").refresh_delivery_status!(sender: sender)
+    create(:text_message, pool: pool, channel: "telegram", status: "sent", provider_sid: "7").refresh_delivery_status!(sender: sender)
+  end
+
+  it "doesn't raise when the lookup fails" do
+    allow(sender).to receive(:lookup).and_raise(Sms::Error, "down")
+    expect { message.refresh_delivery_status!(sender: sender) }.not_to raise_error
+    expect(message.reload.status).to eq("queued")
+  end
+
+  it "polls until a final status" do
+    sender.lookup_result = [ "undelivered", 30034 ]
+    message.await_delivery_status!(wait: 0, sender: sender)
+    expect(message.status).to eq("undelivered")
+  end
+end
