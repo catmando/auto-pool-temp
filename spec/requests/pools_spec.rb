@@ -10,7 +10,7 @@ RSpec.describe "Pool settings" do
     get edit_pool_path
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('data-controller="location-map"', "Austin, Texas, US", "Confirm location",
-                                     "Alerts in Telegram", "Connected ✓", "Warm-day threshold",
+                                     "Alerts in Telegram", "Connected ✓", "Warm-day threshold", "ZIP code", "e.g. 14618",
                                      "At 65°F air the pool should be 91°F", "Search")
   end
 
@@ -69,22 +69,9 @@ RSpec.describe "Pool settings autosave and plan" do
     expect(response.parsed_body["errors"]).to include("Heat rate per day must be greater than 0")
   end
 
-  it "shows the plan as a frame on Settings, re-planned after a change" do
+  it "says changes save automatically, with no plan chart on Settings" do
     get edit_pool_path
-    expect(response.body).to include('turbo-frame id="settings_plan"', "Changes save automatically")
-    get plan_path
-    expect(response.body).to include('<turbo-frame id="settings_plan">', 'class="line setpoint"', "Average error")
-    first = pool.recommendations.recent.first
-    travel 1.minute do
-      patch pool_path(format: :json), params: { pool: { warm_day_threshold: 40 } }
-      get plan_path
-      expect(pool.recommendations.recent.first).not_to eq(first)
-    end
-  end
-
-  it "asks for a location before showing a plan" do
-    pool.update!(latitude: nil, longitude: nil)
-    get plan_path
-    expect(response.body).to include("Set a location")
+    expect(response.body).to include("Changes save automatically")
+    expect(response.body).not_to include("settings_plan")
   end
 end

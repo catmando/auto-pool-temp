@@ -1,10 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Saves the settings form as soon as a field changes, then redraws the plan
-// chart (a Turbo Frame) so the effect shows right away.
+// Saves the settings form as soon as a field changes.
 export default class extends Controller {
   static targets = ["status"]
-  static values = { frame: String }
 
   async save() {
     this.statusTarget.textContent = "Saving…"
@@ -19,7 +17,6 @@ export default class extends Controller {
       if (!response.ok) throw new Error((result.errors || ["Couldn't save"]).join(", "))
       this.statusTarget.textContent = "Saved ✓"
       this.statusTarget.className = "save-status ok"
-      document.getElementById(this.frameValue)?.reload()
     } catch (error) {
       this.statusTarget.textContent = `Not saved: ${error.message}`
       this.statusTarget.className = "save-status error"

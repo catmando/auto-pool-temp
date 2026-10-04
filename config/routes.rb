@@ -13,7 +13,6 @@ Rails.application.routes.draw do
   resources :checks, only: :create
   resources :text_messages, only: :index
   resource :lab, only: :show
-  resource :plan, only: :show
   resources :forecast_snapshots, only: %i[create destroy]
   resource :test_mode, only: :update
 

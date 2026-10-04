@@ -17,7 +17,7 @@
     <% end %>
   </p>
   <form class="inline" data-action="submit->location-map#search">
-    <input type="search" inputmode="numeric" placeholder="ZIP code or city" aria-label="ZIP code or city" data-location-map-target="query">
+    <label>ZIP code <input type="search" inputmode="numeric" placeholder="e.g. 14618" data-location-map-target="query"></label>
     <button type="submit" class="button secondary">Find</button>
     <button type="button" class="button secondary" data-action="location-map#locate">Use my location</button>
   </form>
@@ -33,16 +33,8 @@
 
 <%= render "delivery", pool: pool %>
 
-<section class="card" id="plan">
-  <h2>Plan</h2>
-  <p class="muted">Updates as you change the settings below.</p>
-  <turbo-frame id="settings_plan" src="<%= plan_path %>">
-    <p class="muted">Loading the plan…</p>
-  </turbo-frame>
-</section>
-
 <%= form_with model: pool, url: pool_path, method: :patch, class: "stack",
-              data: { controller: "autosave", autosave_frame_value: "settings_plan", action: "change->autosave#save" } do |f| %>
+              data: { controller: "autosave", action: "change->autosave#save" } do |f| %>
   <section class="card">
     <h2>Ideal pool temperature</h2>
     <p class="muted">Two points define a straight line from the day's average air temperature to the ideal pool temperature. It keeps going past both points.</p>

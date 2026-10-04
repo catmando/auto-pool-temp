@@ -29,7 +29,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 345 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 344 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -113,9 +113,9 @@ Single user for now; sign-up closes after the first account.
     one behind the current plan) or `bin/rails "snapshots:from_recommendation[ID,NAME]"`. Snapshot 1 in
     production is the owner's Oct 4 3pm Rochester forecast (the Friday-overshoot case).
   - `CurrentPlan` re-plans by itself (no alert) when the plan is >1h old, made before the app booted (so a deploy
-    with planner changes shows up on the next refresh), or older than `pool.updated_at`. Used by the dashboard
-    and by the plan frame on Settings (`/plan`). **Settings autosave** on every change (`autosave_controller.js`,
-    JSON PATCH) and redraw that frame. The dashboard cards distinguish the heater dial (only used to decide
+    with planner changes shows up on the next refresh), or older than `pool.updated_at`. Used by the dashboard.
+    **Settings autosave** on every change (`autosave_controller.js`, JSON PATCH). The plan chart is only on
+    the dashboard; the owner asked to remove it from Settings (2026-10-04). The dashboard cards distinguish the heater dial (only used to decide
     alerts) from the measured water temp (where the plan starts); the owner confused them on 2026-10-04
     (settings, heater setting, water reading, test mode). The "Preview now" button is gone.
 - Water temperature: `pool.estimated_water_temp(time)` advances the last known value (reported with
