@@ -14,11 +14,17 @@ RSpec.describe "Dashboard" do
   it "shows the setting and schedule before any checks" do
     get root_path
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("88°F", "assumed: you followed the last text", "No checks yet", "Austin, Texas, US",
-                                     "not configured")
+    expect(response.body).to include("88°F", "assumed: you followed the last alert", "No checks yet", "Austin, Texas, US",
+                                     "alerts go by Text message (Twilio)", "not configured")
   end
 
-  it "shows the latest recommendation, chart, and texts" do
+  it "warns when the alert address isn't confirmed" do
+    pool.update!(phone_verified_at: nil)
+    get root_path
+    expect(response.body).to include("not confirmed yet")
+  end
+
+  it "shows the latest recommendation, chart, and messages" do
     create(:recommendation, pool: pool, target_temp: 93, reason: "Cold coming.")
     create(:text_message, pool: pool, body: "Set the heater to 93°F.")
     get root_path

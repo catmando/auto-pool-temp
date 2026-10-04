@@ -17,14 +17,14 @@
       <p><%= @recommendation.reason %></p>
       <p class="muted">
         <%= local_time(@recommendation.created_at) %> · <%= @recommendation.strategy %> ·
-        <%= @recommendation.notified? ? "text sent" : "no text" %>
+        <%= @recommendation.notified? ? "alert sent" : "no alert" %>
       </p>
     <% else %>
       <p class="muted">No checks yet.</p>
     <% end %>
     <div class="inline">
       <%= button_to "Preview now", checks_path, params: { notify: "0" }, class: "button secondary" %>
-      <%= button_to "Check & text if needed", checks_path, params: { notify: "1" }, class: "button" %>
+      <%= button_to "Check & alert if needed", checks_path, params: { notify: "1" }, class: "button" %>
     </div>
   </section>
 </div>
@@ -41,19 +41,20 @@
   <p>
     <%= pool.location_name.presence || "#{pool.latitude}, #{pool.longitude}" %> (<%= pool.time_zone %>).
     Checks at <%= pool.check_hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.to_sentence %> local time;
-    texts go to <%= pool.phone_number.presence || "no phone number set" %>
-    <%= "(alerts paused)" unless pool.notifications_enabled? %>.
+    alerts go by <%= pool.channel_label %>
+    <% if !pool.notifications_enabled? %>(paused)<% elsif !pool.contact_verified? %>(<%= link_to "not confirmed yet", edit_pool_path(anchor: "delivery") %>, so nothing is sent)<% end %>.
   </p>
   <p class="muted">
     Last scheduled check: <%= local_time(pool.last_checked_at) %>.
-    Twilio: <%= Sms::TwilioSender.configured? ? "configured" : "not configured, so texts are only logged" %>.
+    Twilio: <%= Sms::TwilioSender.configured? ? "configured" : "not configured" %>.
+    Telegram bot: <%= TelegramBot.configured? ? "configured" : "not configured" %>.
   </p>
 </section>
 
 <% if @text_messages.any? %>
   <section class="card">
-    <h2>Recent texts</h2>
+    <h2>Recent messages</h2>
     <%= render "text_messages/list", text_messages: @text_messages %>
-    <p><%= link_to "All texts", text_messages_path %></p>
+    <p><%= link_to "All messages", text_messages_path %></p>
   </section>
 <% end %>

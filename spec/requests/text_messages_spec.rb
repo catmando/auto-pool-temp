@@ -16,6 +16,6 @@ RSpec.describe "Text message log" do
 
   it "handles an empty log" do
     get text_messages_path
-    expect(response.body).to include("No texts yet")
+    expect(response.body).to include("No messages yet")
   end
 end

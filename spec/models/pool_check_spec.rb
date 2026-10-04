@@ -121,3 +121,27 @@ RSpec.describe PoolCheck do
     expect(Sms.sender.deliveries.size).to eq(1)
   end
 end
+
+RSpec.describe PoolCheck, "channels" do
+  let(:weather) { FakeWeather.new(forecast: flat_forecast(65)) }
+
+  it "doesn't alert an unconfirmed phone" do
+    pool = create(:pool, :unverified)
+    check = described_class.call(pool, weather: weather)
+    expect(check).not_to be_notified
+    expect(Sms.sender.deliveries).to be_empty
+  end
+
+  it "alerts a linked Telegram chat" do
+    pool = create(:pool, :telegram)
+    check = described_class.call(pool, weather: weather)
+    expect(check).to be_notified
+    expect(TelegramBot.sender.deliveries.last).to include(to: "424242")
+    expect(check.text_message.channel).to eq("telegram")
+  end
+
+  it "doesn't alert when Telegram is chosen but not linked" do
+    pool = create(:pool, notification_channel: "telegram")
+    expect(described_class.call(pool, weather: weather)).not_to be_notified
+  end
+end

@@ -1,7 +1,7 @@
 <ul class="messages">
   <% text_messages.each do |m| %>
     <li class="<%= m.direction %>">
-      <div class="meta"><%= m.direction == "inbound" ? "From #{m.from}" : "To #{m.to}" %> · <%= local_time(m.created_at) %> · <%= m.status %></div>
+      <div class="meta"><%= m.channel == "telegram" ? "Telegram" : "SMS" %> · <%= m.direction == "inbound" ? "From #{m.from}" : "To #{m.to}" %> · <%= local_time(m.created_at) %> · <%= m.status %></div>
       <div><%= m.body %></div>
       <% if m.error.present? %><div class="error"><%= m.error %></div><% end %>
     </li>

@@ -42,9 +42,11 @@ RSpec.configure do |config|
     original_weather = Weather.provider
     Weather.provider = FakeWeather.new
     Sms.sender = FakeSmsSender.new
+    TelegramBot.sender = FakeSmsSender.new
     example.run
   ensure
     Weather.provider = original_weather
     Sms.sender = nil
+    TelegramBot.sender = nil
   end
 end

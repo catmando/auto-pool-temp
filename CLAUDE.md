@@ -22,36 +22,42 @@ Single user for now; sign-up closes after the first account.
 - The algorithm must be a swappable module the owner can experiment with.
 - RSpec, with full specs written alongside the code.
 
-## Status (2026-10-03)
+## Status (2026-10-04)
 - Done: auth, settings UI (geolocation, Open-Meteo place search, curve,
   rates, alerts, strategy), dashboard with SVG forecast/plan chart, preview and
-  check-now buttons, "my heater is actually at X" form, text log, hourly
-  scheduler, Twilio sender, inbound SMS webhook with signature validation.
-- Verified: 186 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
-  A manual run against the live Open-Meteo API (Austin, TX) works and the dashboard renders.
-- **Twilio is not wired up yet.** Without credentials, texts are logged
-  (`Sms::LogSender`) and stored in `text_messages` with status `logged`.
+  check-now buttons, "my heater is actually at X" form, message log, hourly
+  scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
+  **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
+  inbound replies on both channels.
+- Verified: 255 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
+  credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
+  Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
+  (Sole Proprietor). **Short term: Telegram** (being set up 2026-10-04; bot token goes in
+  credentials under `telegram: bot_token:`).
+- The owner's real account exists locally (Rochester, NY; cell +1 585-278-6308, which is verified
+  on Twilio as a trial recipient).
 - **Running locally on the owner's Mac for now** via `bin/dev`, which runs foreman with `Procfile.dev`:
   `web` (Puma + Solid Queue supervisor, so the hourly scheduler runs) and `tunnel` (`bin/tunnel`, which is
   skipped if cloudflared is missing or `NO_TUNNEL` is set). Port comes from `PORT` (default 3000) and is passed
   as `APP_PORT`, because foreman rewrites `PORT` for each process. Development
   uses a separate queue DB (`storage/development_queue.sqlite3`). Checks missed while the Mac sleeps
-  run at the next hourly tick (`Pool#due?` catches up). Inbound SMS replies need a public URL, so use a
-  tunnel (cloudflared/ngrok) or wait until it is hosted.
-- **Hosting for later.** Options discussed: Render/Fly (~$5–7/mo),
-  Kamal/Hatchbox on a VPS (Kamal config is generated), or a home machine.
+  run at the next hourly tick (`Pool#due?` catches up). `bin/tunnel` registers the Twilio and Telegram
+  webhooks (`bin/rails notify:webhooks[url]`) each time it starts.
+- **Next deploy target: Fly.io**, once Telegram works locally.
 
 ## Next steps
-1. Finish Twilio: the owner is creating a trial account (2026-10-03). Put keys in
-   `bin/rails credentials:edit` under `twilio:` (account_sid, auth_token, from_number), or in ENV
-   `TWILIO_*` (ENV wins). Then `bin/rails twilio:status`, `bin/rails twilio:test_sms`, and
-   `bin/tunnel` for replies. Trial accounts can only text verified numbers. Upgrading needs
-   A2P 10DLC (or toll-free verification) for US numbers.
+1. Finish Telegram: create a bot with @BotFather, add `telegram: bot_token:` to
+   `bin/rails credentials:edit`, run `bin/rails telegram:status`, start `bin/dev`, choose Telegram
+   in Settings, and tap "Connect Telegram".
+2. Deploy to Fly.io: a volume for SQLite in `storage/`, `RAILS_MASTER_KEY` as a secret, Puma with
+   `SOLID_QUEUE_IN_PUMA=1`, then `bin/rails notify:webhooks[https://<app>.fly.dev]`.
+3. SMS for real: upgrade Twilio, then register A2P 10DLC (or verify a toll-free number).
    **`config/master.key` is gitignored. Copy it to other machines yourself, or the
-   credentials (Twilio keys) won't decrypt.**
-2. Eventually choose hosting. The job runner must run all the time, either `bin/jobs` or Puma with
-   `SOLID_QUEUE_IN_PUMA=1`, so `ScheduledChecksJob` fires hourly.
-3. Tune the algorithm with real data (see below).
+   credentials won't decrypt.**
+4. TODO: Twilio status callbacks. Today a text Twilio accepts but later marks undelivered
+   still counts as "followed" (assumed_setpoint gets updated).
+5. Tune the algorithm with real data (see below).
 
 ## Architecture
 - `Weather::Forecast` is a normalized time series of air temps (°F), with
@@ -79,8 +85,16 @@ Single user for now; sign-up closes after the first account.
   `bin/tunnel` starts a cloudflared quick tunnel to localhost:3000 and points the Twilio number's
   incoming-SMS webhook at it (the URL changes every run). The signed-webhook check was verified
   through a real tunnel. Dev `config.hosts` allows `.trycloudflare.com` and `.ngrok-free.app`.
-- `SmsReply` handles inbound texts: a number (actual setting, then re-advise),
-  STATUS, PAUSE/RESUME, or help.
+- `Notifications`: channels `sms` and `telegram`. `pool.notification_channel` picks one, and
+  `Notifications.sender(channel)` / `.address(pool)` route messages. `TextMessage.deliver` logs every
+  message (any channel) and never raises. Alerts only go out when `pool.notifiable?` (enabled and
+  contact confirmed).
+  - SMS confirmation: `PhoneVerification` (6-digit code, bcrypt digest, 10 min TTL, 5 tries, 30s
+    resend wait). Changing the phone number un-confirms it. Users can reply to the text with the code.
+  - Telegram: `TelegramBot` (Bot API over Net::HTTP; webhook secret derived from the token) and
+    `TelegramLink` (one-time t.me/<bot>?start=<token> deep link, 30 min TTL).
+  - `InboundMessage` handles replies on both channels (codes, /start, setpoint numbers, STATUS,
+    PAUSE/RESUME) and replies on the same channel.
 - `Sms.sender` uses `TwilioSender` when configured, otherwise `LogSender`. `TextMessage.deliver`
   logs every send and never raises.
 - Scheduling: `config/recurring.yml` runs `ScheduledChecksJob` hourly at :05. It enqueues

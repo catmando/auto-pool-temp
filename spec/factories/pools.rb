@@ -12,6 +12,17 @@ FactoryBot.define do
     longitude { -97.74 }
     time_zone { "America/Chicago" }
     phone_number { "+15125550100" }
+    phone_verified_at { Time.current }
+
+    trait :unverified do
+      phone_verified_at { nil }
+    end
+
+    trait :telegram do
+      notification_channel { "telegram" }
+      telegram_chat_id { "424242" }
+      telegram_linked_at { Time.current }
+    end
 
     trait :unlocated do
       latitude { nil }

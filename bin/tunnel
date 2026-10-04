@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
-# Opens a Cloudflare quick tunnel to the local app and points the Twilio
-# number's incoming-SMS webhook at it, so text replies reach bin/dev.
+# Opens a Cloudflare quick tunnel to the local app and points the Twilio and
+# Telegram webhooks at it (bin/rails notify:webhooks), so replies reach bin/dev.
 # The quick-tunnel URL changes every run; this re-registers it each time, and
 # restarts the tunnel if cloudflared exits (foreman would otherwise stop
 # everything). Normally started by bin/dev via Procfile.dev.
@@ -34,10 +34,10 @@ until stopping
 
     registered = true
     puts "Tunnel: #{url} -> http://localhost:#{port}"
-    if system(File.join(root, "bin/rails"), "twilio:webhook[#{url}]", chdir: root)
-      puts "Text replies now reach this machine."
+    if system(File.join(root, "bin/rails"), "notify:webhooks[#{url}]", chdir: root)
+      puts "Replies (Telegram / SMS) now reach this machine."
     else
-      puts "Twilio webhook not updated (see above). The tunnel is up; replies won't arrive until Twilio is configured."
+      puts "Some webhooks weren't updated (see above). The tunnel is still up."
     end
   end
 

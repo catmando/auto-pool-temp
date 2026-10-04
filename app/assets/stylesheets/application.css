@@ -70,3 +70,9 @@ form.button_to { display: inline; }
 .legend .smoothed::before { background: var(--smoothed); }
 .legend .desired::before { background: var(--desired); }
 .legend .plan::before { background: var(--plan); }
+h3 { font-size: .95rem; margin: 0 0 .4rem; }
+.ok { color: var(--ok); font-weight: 600; }
+.channels { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.channel { border: 1px solid var(--line); border-radius: 8px; padding: .75rem 1rem; }
+.channel.chosen { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.channel p { margin: .3rem 0 .6rem; }

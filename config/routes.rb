@@ -6,11 +6,15 @@ Rails.application.routes.draw do
   resource :pool, only: %i[edit update]
   resource :location_search, only: :create
   resource :setpoint, only: :update
+  resource :phone_verification, only: %i[create update]
+  resource :telegram_link, only: %i[create destroy]
   resources :checks, only: :create
   resources :text_messages, only: :index
 
   # Twilio inbound SMS webhook (configure as the "A message comes in" URL)
   post "twilio/sms" => "twilio_webhooks#create", as: :twilio_sms
+  # Telegram bot webhook (registered by bin/tunnel or `bin/rails notify:webhooks[url]`)
+  post "telegram/webhook" => "telegram_webhooks#create", as: :telegram_webhook
 
   get "up" => "rails/health#show", as: :rails_health_check
 

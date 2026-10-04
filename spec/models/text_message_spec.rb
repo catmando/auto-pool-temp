@@ -30,3 +30,27 @@ RSpec.describe TextMessage do
     end
   end
 end
+
+RSpec.describe TextMessage, "channels" do
+  it { is_expected.to validate_inclusion_of(:channel).in_array(%w[sms telegram]) }
+
+  it "routes to the pool's channel and address" do
+    pool = create(:pool, :telegram)
+    message = described_class.deliver(pool: pool, body: "Hi")
+    expect(message).to have_attributes(channel: "telegram", to: "424242", status: "queued")
+    expect(TelegramBot.sender.deliveries.size).to eq(1)
+  end
+
+  it "can force a channel" do
+    pool = create(:pool, :telegram)
+    described_class.deliver(pool: pool, body: "Hi", channel: "sms")
+    expect(Sms.sender.deliveries.last).to include(to: "+15125550100")
+  end
+
+  it "fails cleanly with no address" do
+    pool = create(:pool, notification_channel: "telegram")
+    message = described_class.deliver(pool: pool, body: "Hi")
+    expect(message).to be_failed
+    expect(message.error).to include("no Telegram address")
+  end
+end

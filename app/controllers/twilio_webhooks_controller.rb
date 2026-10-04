@@ -5,7 +5,7 @@ class TwilioWebhooksController < ActionController::Base
   before_action :verify_twilio_signature
 
   def create
-    SmsReply.handle(from: params[:From], body: params[:Body])
+    InboundMessage.handle(channel: "sms", from: params[:From], body: params[:Body])
     render xml: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
   end
 

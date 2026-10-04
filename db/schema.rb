@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_03_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_04_010000) do
   create_table "pools", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "name", default: "My Pool", null: false
@@ -36,7 +36,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_220000) do
     t.datetime "last_checked_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "notification_channel", default: "sms", null: false
+    t.datetime "phone_verified_at"
+    t.string "phone_verification_digest"
+    t.datetime "phone_verification_sent_at"
+    t.integer "phone_verification_attempts", default: 0, null: false
+    t.string "telegram_chat_id"
+    t.datetime "telegram_linked_at"
+    t.string "telegram_link_token"
+    t.datetime "telegram_link_sent_at"
     t.index ["phone_number"], name: "index_pools_on_phone_number"
+    t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
+    t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true
     t.index ["user_id"], name: "index_pools_on_user_id", unique: true
   end
 
@@ -74,6 +85,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_220000) do
     t.text "error"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "channel", default: "sms", null: false
     t.index ["pool_id"], name: "index_text_messages_on_pool_id"
   end
 

@@ -25,7 +25,7 @@ namespace :twilio do
 
     pool = Pool.where.not(phone_number: nil).first || abort("Set a phone number in Settings first.")
     to = ENV["TO"].presence || pool.phone_number
-    message = TextMessage.deliver(pool: pool, to: to, body: "Auto Pool Temp test: Twilio is working. Reply STATUS to try a reply.")
+    message = TextMessage.deliver(pool: pool, channel: "sms", to: to, body: "Auto Pool Temp test: Twilio is working. Reply STATUS to try a reply.")
     abort "Send failed: #{message.error}" if message.failed?
     puts "Sent to #{to} (#{message.provider_sid}, #{message.status})"
   end

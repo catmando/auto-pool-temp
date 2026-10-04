@@ -5,7 +5,7 @@ class PoolCheck
 
   def self.call(pool, **options) = new(pool, **options).call
 
-  def initialize(pool, notify: true, now: Time.current, weather: Weather.provider, sender: Sms.sender)
+  def initialize(pool, notify: true, now: Time.current, weather: Weather.provider, sender: nil)
     @pool = pool
     @notify = notify
     @now = now
@@ -27,7 +27,7 @@ class PoolCheck
       strategy: pool.strategy, target_temp: result.target, raw_target: result.raw_target,
       assumed_setpoint: previous, reason: result.reason, details: result.details)
 
-    if @notify && change && pool.notifications_enabled? && pool.phone_number.present?
+    if @notify && change && pool.notifiable?
       @text_message = TextMessage.deliver(pool: pool, body: self.class.message_for(pool, result, previous), sender: @sender)
       unless @text_message.failed?
         @recommendation.update!(notified: true)

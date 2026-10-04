@@ -1,6 +1,7 @@
 <% pool = current_pool %>
 <h1>Settings</h1>
 <%= render "shared/errors", record: pool %>
+<%= render "delivery", pool: pool %>
 
 <div data-controller="location">
   <section class="card">
@@ -51,14 +52,15 @@
     </section>
 
     <section class="card">
-      <h2>Text alerts</h2>
+      <h2>Alerts</h2>
       <div class="fields">
+        <label>Send alerts by <%= f.select :notification_channel, Notifications::CHANNELS.map { |key, c| [c[:label], key] } %></label>
         <label>Mobile number <%= f.telephone_field :phone_number, placeholder: "+1 555 123 4567" %></label>
         <label>Checks per day
           <%= f.select :checks_per_day, Pool::CHECK_HOURS.map { |n, hours| ["#{n} (#{hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.join(', ')})", n] } %>
         </label>
-        <label>Only text when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
-        <label class="check"><%= f.check_box :notifications_enabled %> Send texts</label>
+        <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
+        <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
       </div>
     </section>
 

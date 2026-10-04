@@ -25,10 +25,27 @@ class Pool < ApplicationRecord
   validates :longitude, numericality: { in: -180..180 }, allow_nil: true
   validates :phone_number, format: { with: /\A\+\d{10,15}\z/, message: "must be a valid phone number" }, allow_nil: true
   validates :assumed_setpoint, numericality: { only_integer: true, in: 40..110 }, allow_nil: true
+  validates :notification_channel, inclusion: { in: Notifications.channels }
   validate :time_zone_exists
   validate :anchors_distinct
 
+  # A changed phone number must be confirmed again.
+  before_save :reset_phone_verification, if: -> { will_save_change_to_phone_number? && !will_save_change_to_phone_verified_at? }
+
   def located? = latitude.present? && longitude.present?
+
+  def phone_verified? = phone_number.present? && phone_verified_at.present?
+
+  def telegram_linked? = telegram_chat_id.present?
+
+  # Is the address for the chosen channel confirmed?
+  def contact_verified?
+    notification_channel == "telegram" ? telegram_linked? : phone_verified?
+  end
+
+  def notifiable? = notifications_enabled? && contact_verified?
+
+  def channel_label = Notifications.label(notification_channel)
 
   def zone = ActiveSupport::TimeZone[time_zone] || Time.zone
 
@@ -76,6 +93,13 @@ class Pool < ApplicationRecord
   def recommender_class = Recommenders.for(strategy)
 
   private
+
+  def reset_phone_verification
+    self.phone_verified_at = nil
+    self.phone_verification_digest = nil
+    self.phone_verification_sent_at = nil
+    self.phone_verification_attempts = 0
+  end
 
   def time_zone_exists
     errors.add(:time_zone, "is not a known time zone") unless ActiveSupport::TimeZone[time_zone.to_s]

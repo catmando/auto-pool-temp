@@ -1,0 +1,50 @@
+<% verification = PhoneVerification.new(pool) %>
+<section class="card" id="delivery">
+  <h2>Where alerts go</h2>
+  <p>
+    Alerts are sent by <strong><%= pool.channel_label %></strong>.
+    <% if pool.contact_verified? %>
+      <span class="ok">Confirmed ✓</span>
+    <% else %>
+      <span class="error">Not confirmed yet, so nothing will be sent.</span>
+    <% end %>
+    <span class="muted">Change the channel under Alerts below.</span>
+  </p>
+
+  <div class="channels">
+    <div class="channel <%= 'chosen' if pool.notification_channel == 'telegram' %>">
+      <h3>Telegram</h3>
+      <% if !TelegramBot.configured? %>
+        <p class="muted">The Telegram bot isn't set up yet (no bot token).</p>
+      <% elsif pool.telegram_linked? %>
+        <p><span class="ok">Connected ✓</span> <span class="muted">since <%= local_time(pool.telegram_linked_at, pool) %></span></p>
+        <%= button_to "Disconnect", telegram_link_path, method: :delete, class: "button secondary" %>
+      <% elsif (url = telegram_link_url(pool)) %>
+        <p><%= link_to "Open Telegram to connect", url, class: "button", target: "_blank", rel: "noopener" %></p>
+        <p class="muted">Then press <strong>Start</strong> in Telegram. This link works once, for 30 minutes.</p>
+        <%= button_to "Make a new link", telegram_link_path, class: "link" %>
+      <% else %>
+        <%= button_to "Connect Telegram", telegram_link_path, class: "button secondary" %>
+      <% end %>
+    </div>
+
+    <div class="channel <%= 'chosen' if pool.notification_channel == 'sms' %>">
+      <h3>Text message</h3>
+      <% if pool.phone_number.blank? %>
+        <p class="muted">Add a mobile number under Alerts below.</p>
+      <% elsif pool.phone_verified? %>
+        <p><%= pool.phone_number %> <span class="ok">confirmed ✓</span></p>
+      <% else %>
+        <p><%= pool.phone_number %> <span class="muted">not confirmed</span></p>
+        <% if verification.pending? %>
+          <%= form_with url: phone_verification_path, method: :patch, class: "inline" do |f| %>
+            <label>Code <%= f.text_field :code, inputmode: "numeric", autocomplete: "one-time-code", maxlength: 6, class: "short", required: true %></label>
+            <%= f.submit "Confirm", class: "button" %>
+          <% end %>
+          <p class="muted">Sent <%= local_time(pool.phone_verification_sent_at, pool) %>. You can also reply to the text with the code.</p>
+        <% end %>
+        <%= button_to(verification.pending? ? "Send a new code" : "Text me a code", phone_verification_path, class: "button secondary") %>
+      <% end %>
+    </div>
+  </div>
+</section>

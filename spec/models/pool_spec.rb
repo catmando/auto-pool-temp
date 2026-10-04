@@ -155,3 +155,29 @@ RSpec.describe Pool do
     expect(build(:pool, strategy: "linear").recommender_class).to eq(Recommenders::Linear)
   end
 end
+
+RSpec.describe Pool, "alert delivery" do
+  it { is_expected.to validate_inclusion_of(:notification_channel).in_array(%w[sms telegram]) }
+
+  it "needs a confirmed phone for SMS" do
+    expect(build(:pool)).to be_contact_verified
+    expect(build(:pool, :unverified)).not_to be_contact_verified
+    expect(build(:pool, phone_number: nil)).not_to be_phone_verified
+  end
+
+  it "needs a linked chat for Telegram" do
+    expect(build(:pool, :telegram)).to be_contact_verified
+    expect(build(:pool, notification_channel: "telegram")).not_to be_contact_verified
+  end
+
+  it "is notifiable only when enabled and confirmed" do
+    expect(build(:pool)).to be_notifiable
+    expect(build(:pool, notifications_enabled: false)).not_to be_notifiable
+  end
+
+  it "keeps verification when the phone doesn't change" do
+    pool = create(:pool)
+    pool.update!(name: "Renamed")
+    expect(pool.reload).to be_phone_verified
+  end
+end

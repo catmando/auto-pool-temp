@@ -23,6 +23,7 @@ class FakeWeather
   end
 end
 
+# Stand-in for both the SMS and Telegram senders.
 class FakeSmsSender
   attr_reader :deliveries
   attr_accessor :fail_with
@@ -37,4 +38,8 @@ class FakeSmsSender
     @deliveries << { to: to, body: body }
     Sms::Delivery.new(sid: "SM#{@deliveries.size}", status: "queued")
   end
+
+  def username = "pool_temp_bot"
+
+  def last_body = @deliveries.last&.fetch(:body)
 end
