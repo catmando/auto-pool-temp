@@ -31,8 +31,10 @@ Single user for now; sign-up closes after the first account.
   A manual run against the live Open-Meteo API (Austin, TX) works and the dashboard renders.
 - **Twilio is not wired up yet.** Without credentials, texts are logged
   (`Sms::LogSender`) and stored in `text_messages` with status `logged`.
-- **Running locally on the owner's Mac for now** via `bin/dev`, which starts Puma with the Solid Queue
-  supervisor (`SOLID_QUEUE_IN_PUMA=1`), so the hourly scheduler runs in the same process. Development
+- **Running locally on the owner's Mac for now** via `bin/dev`, which runs foreman with `Procfile.dev`:
+  `web` (Puma + Solid Queue supervisor, so the hourly scheduler runs) and `tunnel` (`bin/tunnel`, which is
+  skipped if cloudflared is missing or `NO_TUNNEL` is set). Port comes from `PORT` (default 3000) and is passed
+  as `APP_PORT`, because foreman rewrites `PORT` for each process. Development
   uses a separate queue DB (`storage/development_queue.sqlite3`). Checks missed while the Mac sleeps
   run at the next hourly tick (`Pool#due?` catches up). Inbound SMS replies need a public URL, so use a
   tunnel (cloudflared/ngrok) or wait until it is hosted.
@@ -91,7 +93,8 @@ Single user for now; sign-up closes after the first account.
 ```sh
 bundle install
 bin/rails db:prepare
-bin/dev                  # http://localhost:3000 — web UI + scheduler in one process
+bin/dev                  # foreman (Procfile.dev): web + scheduler + SMS tunnel, http://localhost:3000
+NO_TUNNEL=1 bin/dev      # without the tunnel
 bundle exec rspec        # full suite
 bin/ci                   # rubocop + audits + brakeman + rspec
 ```

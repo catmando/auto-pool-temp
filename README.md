@@ -17,8 +17,7 @@ your heater's actual setting if it differs from what the app assumed.
 ```sh
 bundle install
 bin/rails db:prepare
-bin/dev          # http://localhost:3000
-bin/jobs         # runs the scheduled checks
+bin/dev          # app + scheduler + SMS reply tunnel (foreman), http://localhost:3000
 ```
 
 Twilio: set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM_NUMBER`. Then point the

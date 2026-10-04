@@ -1,5 +1,21 @@
 #!/usr/bin/env ruby
-# Runs the web server with the Solid Queue supervisor inside Puma, so the
-# hourly scheduled pool checks run too. One process does everything.
-ENV["SOLID_QUEUE_IN_PUMA"] ||= "1"
-exec "./bin/rails", "server", *ARGV
+# Starts everything with foreman (Procfile.dev):
+#   web    - Rails + the Solid Queue scheduler inside Puma
+#   tunnel - cloudflared tunnel + Twilio webhook registration (bin/tunnel)
+#
+#   bin/dev                # everything, on port 3000
+#   PORT=3124 bin/dev      # another port
+#   NO_TUNNEL=1 bin/dev    # skip the tunnel (also skipped if cloudflared isn't installed)
+
+Dir.chdir(File.expand_path("..", __dir__))
+ENV["APP_PORT"] = ENV.fetch("PORT", "3000") # foreman rewrites PORT per process
+
+unless system("gem list --silent --installed foreman > /dev/null 2>&1") || system("which foreman > /dev/null 2>&1")
+  puts "Installing foreman..."
+  system("gem install foreman") || abort("Couldn't install foreman")
+end
+
+tunnel = ENV["NO_TUNNEL"].nil? && system("which cloudflared > /dev/null 2>&1")
+puts "cloudflared not found or NO_TUNNEL set; running without the SMS reply tunnel." unless tunnel
+
+exec "foreman", "start", "-f", "Procfile.dev", "-m", "web=1,tunnel=#{tunnel ? 1 : 0}", *ARGV
