@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+# Opens a Cloudflare quick tunnel to the local app and points the Twilio
+# number's incoming-SMS webhook at it, so text replies reach bin/dev.
+# The quick-tunnel URL changes every run; this re-registers it each time.
+#
+#   bin/tunnel          # tunnels http://localhost:3000
+#   bin/tunnel 3124     # another port
+
+port = ARGV.first || "3000"
+cloudflared = ENV.fetch("CLOUDFLARED", "cloudflared")
+abort "cloudflared not found. Install it with: brew install cloudflared" unless system("which #{cloudflared} > /dev/null")
+
+reader, writer = IO.pipe
+pid = spawn(cloudflared, "tunnel", "--no-autoupdate", "--url", "http://localhost:#{port}", out: writer, err: writer)
+writer.close
+trap("INT") { Process.kill("TERM", pid) rescue nil }
+trap("TERM") { Process.kill("TERM", pid) rescue nil }
+
+registered = false
+reader.each_line do |line|
+  next if registered || !(url = line[%r{https://[a-z0-9-]+\.trycloudflare\.com}])
+
+  registered = true
+  puts "Tunnel: #{url} -> http://localhost:#{port}"
+  ok = system(File.expand_path("rails", __dir__), "twilio:webhook[#{url}]", chdir: File.expand_path("..", __dir__))
+  puts ok ? "Text replies now reach this machine. Leave this running (Ctrl-C to stop)." : "Couldn't update the Twilio webhook (see above). The tunnel is still up."
+end
+
+Process.wait(pid)

@@ -27,7 +27,7 @@ Single user for now; sign-up closes after the first account.
   rates, alerts, strategy), dashboard with SVG forecast/plan chart, preview and
   check-now buttons, "my heater is actually at X" form, text log, hourly
   scheduler, Twilio sender, inbound SMS webhook with signature validation.
-- Verified: 182 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 186 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
   A manual run against the live Open-Meteo API (Austin, TX) works and the dashboard renders.
 - **Twilio is not wired up yet.** Without credentials, texts are logged
   (`Sms::LogSender`) and stored in `text_messages` with status `logged`.
@@ -40,10 +40,13 @@ Single user for now; sign-up closes after the first account.
   Kamal/Hatchbox on a VPS (Kamal config is generated), or a home machine.
 
 ## Next steps
-1. Wire up Twilio: set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
-   (ENV or `rails credentials:edit` under `twilio:`). Point the number's "A message
-   comes in" webhook (HTTP POST) at `https://<host>/twilio/sms`.
-   US numbers need A2P 10DLC registration (or use a toll-free number and verify it).
+1. Finish Twilio: the owner is creating a trial account (2026-10-03). Put keys in
+   `bin/rails credentials:edit` under `twilio:` (account_sid, auth_token, from_number), or in ENV
+   `TWILIO_*` (ENV wins). Then `bin/rails twilio:status`, `bin/rails twilio:test_sms`, and
+   `bin/tunnel` for replies. Trial accounts can only text verified numbers. Upgrading needs
+   A2P 10DLC (or toll-free verification) for US numbers.
+   **`config/master.key` is gitignored. Copy it to other machines yourself, or the
+   credentials (Twilio keys) won't decrypt.**
 2. Eventually choose hosting. The job runner must run all the time, either `bin/jobs` or Puma with
    `SOLID_QUEUE_IN_PUMA=1`, so `ScheduledChecksJob` fires hourly.
 3. Tune the algorithm with real data (see below).
@@ -70,6 +73,10 @@ Single user for now; sign-up closes after the first account.
 - `PoolCheck` fetches the forecast, runs the recommender, saves a `Recommendation`, and
   texts if `pool.needs_change?` (min_change hysteresis). After a successful text it
   assumes the user followed it. `notify: false` gives a preview.
+- `Sms::TwilioSetup` plus the `twilio:status`, `twilio:webhook[url]` and `twilio:test_sms` rake tasks.
+  `bin/tunnel` starts a cloudflared quick tunnel to localhost:3000 and points the Twilio number's
+  incoming-SMS webhook at it (the URL changes every run). The signed-webhook check was verified
+  through a real tunnel. Dev `config.hosts` allows `.trycloudflare.com` and `.ngrok-free.app`.
 - `SmsReply` handles inbound texts: a number (actual setting, then re-advise),
   STATUS, PAUSE/RESUME, or help.
 - `Sms.sender` uses `TwilioSender` when configured, otherwise `LogSender`. `TextMessage.deliver`

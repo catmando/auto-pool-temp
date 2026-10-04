@@ -57,6 +57,10 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
+  # Allow tunnel hostnames (bin/tunnel) so Twilio can reach the SMS webhook.
+  config.hosts << ".trycloudflare.com"
+  config.hosts << ".ngrok-free.app"
+
   # Highlight code that triggered redirect in logs.
   config.action_dispatch.verbose_redirect_logs = true
 
