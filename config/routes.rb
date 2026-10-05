@@ -9,7 +9,8 @@ Rails.application.routes.draw do
   resource :setpoint, only: :update
   resource :water_temp, only: :update
   resource :cover, only: :update
-  resources :pool_parties, only: %i[create destroy]
+  resource :pump, only: :update
+  resources :pool_parties, only: %i[create update destroy]
   resource :phone_verification, only: %i[create update]
   resource :telegram_link, only: %i[create destroy]
   resources :checks, only: :create

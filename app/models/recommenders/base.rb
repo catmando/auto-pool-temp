@@ -6,7 +6,8 @@ module Recommenders
     def self.description = ""
 
     attr_reader :forecast, :curve, :heat_rate, :environment, :has_cover, :cover_on, :pump, :now, :next_check_at,
-                :check_times, :water_temp, :warm_threshold, :parties, :current_setpoint
+                :check_times, :water_temp, :warm_threshold, :parties, :current_setpoint,
+                :pump_extended, :pump_boost_threshold
 
     # heat_rate: °F per hour the heater adds while the pump runs.
     # cooling_factor: scales the standard heat loss/gain to the air (PoolEnvironment).
@@ -18,9 +19,13 @@ module Recommenders
     #   below it, a slightly warmer one does.
     # parties: PoolParty::Window list; during one the ideal uses the party boost.
     # current_setpoint: what the heater is set to now, if known (planners prefer keeping it).
+    # pump_extended: whether the pump is running around the clock now.
+    # pump_boost_threshold: only suggest running the pump around the clock when, heating flat
+    #   out on the normal schedule, the water would still fall this many °F short.
     def initialize(forecast:, curve:, heat_rate:, cooling_factor: 1, has_cover: false, cover_on: true,
                    pump: PumpSchedule.always_on, now: Time.current, next_check_at: nil,
-                   check_times: nil, water_temp: nil, warm_threshold: 80, parties: [], current_setpoint: nil)
+                   check_times: nil, water_temp: nil, warm_threshold: 80, parties: [], current_setpoint: nil,
+                   pump_extended: false, pump_boost_threshold: 3)
       @forecast = forecast
       @curve = curve
       @heat_rate = heat_rate.to_f
@@ -35,14 +40,17 @@ module Recommenders
       @warm_threshold = warm_threshold.to_f
       @parties = parties
       @current_setpoint = current_setpoint&.to_i
+      @pump_extended = pump_extended
+      @pump_boost_threshold = pump_boost_threshold.to_f
     end
 
     # Settings that come from the pool (everything but the forecast, time, and water).
     def self.pool_options(pool)
       { curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_hour, cooling_factor: pool.cooling_factor,
         has_cover: pool.has_cover, cover_on: pool.cover_on?, pump: pool.pump_schedule,
-        warm_threshold: pool.warm_day_threshold, parties: pool.pool_parties.map(&:window),
-      current_setpoint: pool.assumed_setpoint }
+        warm_threshold: pool.warm_day_threshold, parties: pool.pool_parties.select(&:persisted?).map(&:window),
+      current_setpoint: pool.assumed_setpoint, pump_extended: pool.pump_extended,
+      pump_boost_threshold: pool.pump_boost_threshold }
     end
 
     def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now, air: forecast))

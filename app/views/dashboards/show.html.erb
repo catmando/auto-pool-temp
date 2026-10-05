@@ -6,6 +6,10 @@
     <p class="big"><%= degrees(pool.assumed_setpoint) %></p>
     <p class="muted"><%= setpoint_source_label(pool.setpoint_source) %><% if pool.setpoint_updated_at %>, <%= local_time(pool.setpoint_updated_at) %><% end %></p>
     <p class="hint">What the heater dial says. Used to decide when to alert you; the plan itself starts from the water temperature.</p>
+<% if pool.pump_extended? %>
+  <p>Pump is <strong>running around the clock</strong>
+    <%= button_to "It's back on its schedule", pump_path, method: :patch, params: { extended: "0" }, class: "button secondary" %></p>
+<% end %>
     <% if pool.has_cover? %>
       <p>Cover is <strong><%= pool.cover_on? ? "on" : "off" %></strong>
         <%= button_to(pool.cover_on? ? "It's off" : "It's on", cover_path, method: :patch, params: { on: pool.cover_on? ? "0" : "1" }, class: "button secondary") %></p>
@@ -45,14 +49,14 @@
   </section>
 </div>
 
+<%= render "party", pool: pool, recommendation: @recommendation %>
+
 <% if @recommendation %>
   <section class="card">
     <h2>Plan</h2>
     <%= render "shared/plan", recommendation: @recommendation %>
   </section>
 <% end %>
-
-<%= render "party", pool: pool, recommendation: @recommendation %>
 
 <section class="card">
   <h2>Schedule</h2>

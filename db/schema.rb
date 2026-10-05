@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_200000) do
   create_table "forecast_snapshots", force: :cascade do |t|
     t.integer "pool_id", null: false
     t.string "name", null: false
@@ -80,6 +80,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_100000) do
     t.boolean "cover_on", default: true, null: false
     t.decimal "cooling_factor", precision: 4, scale: 2, default: "1.0", null: false
     t.integer "comfort_adjustment", default: 0, null: false
+    t.decimal "pump_boost_threshold", precision: 4, scale: 1, default: "3.0", null: false
+    t.boolean "pump_extended", default: false, null: false
     t.index ["phone_number"], name: "index_pools_on_phone_number"
     t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
     t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true

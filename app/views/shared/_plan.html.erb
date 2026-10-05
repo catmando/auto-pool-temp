@@ -2,16 +2,18 @@
 <%= forecast_chart(recommendation) %>
 <% changes = plan_changes(recommendation) %>
 <% cover = changes.any? { |c| !c[:cover_on].nil? } && current_pool.has_cover? %>
+<% pump = changes.any? { |c| c[:pump_extra] } %>
 <% if changes.any? %>
   <div class="table-wrap">
     <table class="scores">
-      <thead><tr><th>When</th><th>Set heater to</th><% if cover %><th>Cover</th><% end %><th>Water then</th><th>Ideal then</th></tr></thead>
+      <thead><tr><th>When</th><th>Set heater to</th><% if cover %><th>Cover</th><% end %><% if pump %><th>Pump</th><% end %><th>Water then</th><th>Ideal then</th></tr></thead>
       <tbody>
         <% changes.each do |c| %>
           <tr>
             <td><%= c[:now] ? "Now" : local_time(c[:time]) %></td>
             <td><strong><%= c[:setpoint] %>°F</strong></td>
             <% if cover %><td><%= c[:cover_on] ? "on" : "off" %></td><% end %>
+            <% if pump %><td><%= c[:pump_extra] ? "around the clock" : "normal" %></td><% end %>
             <td>~<%= degrees(c[:water]) %></td>
             <td><%= degrees(c[:ideal]) %></td>
           </tr>

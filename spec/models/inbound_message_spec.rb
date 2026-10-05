@@ -178,3 +178,18 @@ RSpec.describe InboundMessage, "cover replies" do
     expect(pool.reload.cover_on).to be true
   end
 end
+
+RSpec.describe InboundMessage, "pump replies" do
+  let!(:pool) { create(:pool, :telegram, assumed_setpoint: 90) }
+  let(:sender) { FakeSmsSender.new }
+
+  def reply(body) = described_class.handle(channel: "telegram", from: "424242", body: body, sender: sender)
+
+  it "records the pump running around the clock and back to normal" do
+    reply("pump on")
+    expect(pool.reload.pump_extended).to be true
+    reply("Pump normal")
+    expect(pool.reload.pump_extended).to be false
+    expect(sender.last_body).to include("back on its normal schedule")
+  end
+end

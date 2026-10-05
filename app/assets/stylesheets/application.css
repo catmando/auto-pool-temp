@@ -114,3 +114,7 @@ details.advanced h3 { margin-top: 1rem; }
 .parties li { border-left: 3px solid var(--setpoint); padding: .4rem .75rem; margin-bottom: .6rem; }
 .chart .party-band { fill: var(--setpoint); opacity: .12; }
 .legend .party::before { background: var(--setpoint); opacity: .35; height: 10px; }
+.party-block { border-left: 3px solid var(--line); padding: .5rem .9rem; margin: .75rem 0; }
+.party-block.saved { border-left-color: var(--setpoint); }
+.party-outlook p { margin: .35rem 0; }
+.party-when { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

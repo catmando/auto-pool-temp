@@ -107,6 +107,10 @@
     <h3>Planning</h3>
     <div class="fields">
       <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
+      <label>Suggest running the pump around the clock when the pool would be more than (°F) short
+        <%= f.number_field :pump_boost_threshold, step: "any", min: 0 %>
+        <span class="hint">Only when heating flat out during your normal pump hours still can't keep up, e.g. a sudden cold snap or a pool party.</span>
+      </label>
       <label>Planner
         <%= f.select :strategy, Recommenders.registry.map { |key, klass| [klass.label, key] } %>
         <span class="hint"><%= Recommenders.registry.values.map { |k| "#{k.label}: #{k.description}" }.join(" ") %> Compare them in the <%= link_to "Lab", lab_path %>.</span>

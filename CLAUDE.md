@@ -17,11 +17,22 @@ Single user for now; sign-up closes after the first account.
 - Users mostly see one **comfort slider, -10..+10°F** ("I like it warmer/cooler") added to the ideal
   (`pool.comfort_adjustment`). Advanced (collapsed): curve anchors, warm-day threshold, heat rate,
   cooling factor, min change, planner. Test mode is collapsed too.
-- **Pool party mode** (`PoolParty`): a date (window defaults to noon until midnight) and a 0..+10 boost that
+- **Pool party mode** (`PoolParty`): start date/time and end date/time (defaults noon until 11:59 PM the same
+  day; multi-day allowed) and a 0..+10 boost that
   *replaces* the comfort adjustment during the window. The water must be on target **when the party starts**:
   `Comfort` weights party hours 20x, and in the 24h before and 48h after, extra warmth barely counts
   (`:around`), so the planner pre-heats and cools off afterward freely. The dashboard shows each party's
-  outlook (outside air, target, water at start) from the current plan.
+  outlook (outside air, party target vs usual target, water at start) from the current plan; it warns when a
+  party is no warmer than usual (the boost replaces, not adds to, the comfort setting). UI: the party section
+  sits above the plan; each party is its own editable block ("Plan the party"), saved ones show the outlook
+  and Delete, editing one hides those until re-saved, and a blank block sits at the end.
+- **Run the pump around the clock** (`Decision#pump_extra`, `pool.pump_extended`): offered only when the normal
+  pump hours can't keep up with the weather or a party, i.e. heating flat out from the ideal on the normal
+  schedule would leave the water more than `pump_boost_threshold` (default 3°F, Advanced) short within the
+  stage or the next day, or the water is already that far short now. The gate deliberately ignores the
+  water's temperature otherwise (a water-dependent gate taught the planner to run cool to unlock it).
+  Alerts say to run it around the clock / go back to the normal schedule; dashboard button; replies
+  "pump on" / "pump normal".
 - Heater rate **°F per hour** (the owner's: 2). Heat loss/gain to the air follows the owner's standard model
   (`PoolEnvironment`, 2026-10-05), times a **cooling factor** (default 1):
   - cover on: 100°F water at 35°F air loses ~3°F/day, proportional to the water-air gap; air warmer than the
@@ -37,7 +48,11 @@ Single user for now; sign-up closes after the first account.
 - Weather: use hourly temps if the provider has them. If it only has daily
   high/low, assume the high is at ~3 PM and the low at ~3 AM (`Weather::Forecast.from_daily`).
 - The algorithm must be a swappable module the owner can experiment with.
-- RSpec, with full specs written alongside the code.
+- RSpec, with full specs written alongside the code. **Every change must add or update a spec** (owner,
+  2026-10-05). For time/weather-dependent planner behavior, sweep start hours (a single sample missed the
+  flip-flop bug); for user-visible features add an end-to-end spec (e.g. save a party, then the dashboard plan
+  reflects it). JavaScript behavior gets `js: true` system specs (Cuprite / headless Chrome; set
+  BROWSER_PATH if Chrome isn't in a standard place).
 
 ## Status (2026-10-04)
 - Done: auth, settings UI (geolocation, Open-Meteo place search, curve,
@@ -46,7 +61,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 381 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 441 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration

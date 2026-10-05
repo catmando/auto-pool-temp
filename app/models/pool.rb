@@ -24,6 +24,7 @@ class Pool < ApplicationRecord
   validates :hot_air_temp, :hot_pool_temp, :cold_air_temp, :cold_pool_temp, numericality: true
   validates :heat_rate_per_hour, numericality: { greater_than: 0, less_than_or_equal_to: 10 }
   validates :cooling_factor, numericality: { greater_than: 0, less_than_or_equal_to: 5 }
+  validates :pump_boost_threshold, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 20 }
   validates :pump_on_1, :pump_off_1, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 04:00" }
   validates :pump_on_2, :pump_off_2, format: { with: PumpSchedule::TIME_FORMAT, message: "must be a time like 16:00" }, allow_blank: true
   validate :second_pump_window_complete
@@ -152,6 +153,11 @@ class Pool < ApplicationRecord
   # Before the setpoint changes, bank the water temp reached under the old one.
   def record_setpoint!(value, source:, at: Time.current, air: nil)
     update!(banked_water(at, air).merge(assumed_setpoint: value, setpoint_source: source, setpoint_updated_at: at))
+  end
+
+  # Same for running the pump around the clock (true) or on its schedule (false).
+  def record_pump_extended!(on, at: Time.current, air: nil)
+    update!(banked_water(at, air).merge(pump_extended: on))
   end
 
   # Same for the cover: bank the water temp, then record whether it's on.

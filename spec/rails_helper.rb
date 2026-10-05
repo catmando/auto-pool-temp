@@ -35,7 +35,8 @@ RSpec.configure do |config|
   config.include AuthHelpers, type: :request
   config.include AuthHelpers, type: :system
 
-  config.before(:each, type: :system) { driven_by :rack_test }
+  # Plain system specs use rack_test (fast, no JavaScript); js: true ones use headless Chrome (spec/support/cuprite.rb).
+  config.before(:each, type: :system) { |example| driven_by(example.metadata[:js] ? :chrome_headless : :rack_test) }
   config.before { TextMessage.delivery_poll_wait = 0 }
 
   # Specs must not depend on real secrets in config/credentials.yml.enc.

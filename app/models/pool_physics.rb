@@ -13,7 +13,7 @@ class PoolPhysics
   end
 
   def self.for(pool)
-    new(heat_rate: pool.heat_rate_per_hour, pump: pool.pump_schedule,
+    new(heat_rate: pool.heat_rate_per_hour, pump: pool.pump_extended? ? PumpSchedule.always_on : pool.pump_schedule,
         environment: PoolEnvironment.new(factor: pool.cooling_factor))
   end
 

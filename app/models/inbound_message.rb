@@ -4,6 +4,7 @@
 #   "84" / "84F" / "set 84"  -> heater is actually at 84°F; re-check and advise
 #   "water 86" / "w 86"      -> the water itself is 86°F; re-plan from there
 #   "cover on" / "cover off" -> the pool cover is now on / off
+#   "pump on" / "pump normal" -> the pump is running around the clock / back on its schedule
 #   "status" / "?"           -> what the heater should be set to now
 #   "pause" / "resume"       -> turn alerts off / on (Twilio also handles STOP itself)
 #   anything else            -> help
@@ -72,6 +73,10 @@ class InboundMessage
     end
 
     case @body.downcase
+    when /\Apump\s+(normal|schedule|on|always|24\/7)\z/
+      extended = $1 != "normal" && $1 != "schedule"
+      pool.record_pump_extended!(extended, at: @now)
+      extended ? "Got it, the pump is running around the clock." : "Got it, the pump is back on its normal schedule."
     when /\Acover\s+(on|off)\z/, /\A(?:\/)?cover(on|off)\z/
       pool.record_cover!($1 == "on", at: @now)
       "Got it, the cover is #{$1}."

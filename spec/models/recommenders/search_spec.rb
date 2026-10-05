@@ -122,3 +122,41 @@ RSpec.describe Recommenders::Search, "a hot spell with the warm-day threshold at
     expect(rows.count { |r| r[:cover_on] == false }).to be > rows.size / 2
   end
 end
+
+RSpec.describe Recommenders::Search, "steadiness" do
+  # Regression (2026-10-05): with the pump off part of the day, steady weather made
+  # the plan flip-flop (91, 92, 91, ...) at nearly every check: an alert each time.
+  # Sweep every start hour, since the pump-off dips depend on the time of day.
+  let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
+  let(:pool) { build(:pool, has_cover: false, assumed_setpoint: 91) }
+
+  (0..23).each do |hour|
+    it "holds one setting in steady weather when planned at #{hour}:30" do
+      now = zone.local(2026, 10, 5, hour, 30)
+      forecast = flat_forecast(65, start: now.beginning_of_hour, days: 6)
+      settings = described_class.new(forecast: forecast, now: now, water_temp: 91,
+                                     check_times: pool.check_times_between(now, forecast.end_time),
+                                     **Recommenders::Base.pool_options(pool)).call.details[:schedule].map { |s| s[:setpoint] }
+      expect(settings.uniq.size).to eq(1), "settings: #{settings.inspect}"
+    end
+  end
+end
+
+RSpec.describe Recommenders::Search, "steadiness with a cover" do
+  # Same regression, for a pool with a cover: in steady weather the heater
+  # setting, the cover, and the pump all stay put, whatever the start hour.
+  let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
+  let(:pool) { build(:pool, has_cover: true, cover_on: true, assumed_setpoint: 91) }
+
+  (0..23).step(3).each do |hour|
+    it "makes no changes in steady weather when planned at #{hour}:30" do
+      now = zone.local(2026, 10, 5, hour, 30)
+      forecast = flat_forecast(65, start: now.beginning_of_hour, days: 6)
+      decisions = described_class.new(forecast: forecast, now: now, water_temp: 91,
+                                      check_times: pool.check_times_between(now, forecast.end_time),
+                                      **Recommenders::Base.pool_options(pool)).call.details[:schedule]
+                                 .map { |s| s.values_at(:setpoint, :cover_on, :pump_extra) }
+      expect(decisions.uniq.size).to eq(1), "decisions: #{decisions.uniq.inspect}"
+    end
+  end
+end

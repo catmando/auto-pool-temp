@@ -109,7 +109,7 @@ module ChartHelper
   # (heater setting or cover), at the moment of the change.
   def setpoint_markers(rows, times, x, y, _zone)
     rows.each_with_index.filter_map do |r, i|
-      changed = i.zero? || r["setpoint"] != rows[i - 1]["setpoint"] || r["cover_on"] != rows[i - 1]["cover_on"]
+      changed = i.zero? || %w[setpoint cover_on pump_extra].any? { |k| r[k] != rows[i - 1][k] }
       next unless changed
 
       water = (i.zero? ? r : rows[i - 1])["pool"].to_f

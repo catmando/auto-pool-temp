@@ -106,6 +106,9 @@ GEM
       bigdecimal
       rexml
     crass (1.0.7)
+    cuprite (0.18)
+      capybara (~> 3.0)
+      ferrum (~> 0.18.0)
     date (3.5.1)
     debug (1.11.1)
       irb (~> 1.10)
@@ -129,6 +132,11 @@ GEM
       logger
     faraday-net_http (3.4.4)
       net-http (~> 0.5)
+    ferrum (0.18.0)
+      addressable (~> 2.5)
+      base64 (~> 0.2)
+      concurrent-ruby (~> 1.1)
+      websocket-driver (~> 0.7)
     fugit (1.14.0)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
@@ -423,6 +431,7 @@ DEPENDENCIES
   brakeman
   bundler-audit
   capybara
+  cuprite
   debug
   factory_bot_rails
   importmap-rails

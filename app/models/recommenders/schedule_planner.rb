@@ -7,7 +7,10 @@ module Recommenders
   # explains the first decision.
   class SchedulePlanner < Base
     Stage = Data.define(:index, :start, :stop, :at) # hour indexes [start, stop), start time
-    Decision = Data.define(:setpoint, :cover_on)
+    # pump_extra: run the pump (and so the heater) around the clock instead of on its schedule.
+    Decision = Data.define(:setpoint, :cover_on, :pump_extra) do
+      def initialize(setpoint:, cover_on:, pump_extra: false) = super
+    end
 
     def call
       decisions = merge_ramps(choose_decisions)
@@ -17,8 +20,8 @@ module Recommenders
         raw_target: first.setpoint.to_f,
         reason: explain(decisions),
         details: { strategy: strategy_key, series: rows.map { |r| r.merge(t: r[:t].iso8601) },
-                   schedule: stages.zip(decisions).map { |s, d| { t: s.at.iso8601, setpoint: d.setpoint, cover_on: d.cover_on } },
-                   cover_on: has_cover ? first.cover_on : nil,
+                   schedule: stages.zip(decisions).map { |s, d| { t: s.at.iso8601, setpoint: d.setpoint, cover_on: d.cover_on, pump_extra: d.pump_extra } },
+                   cover_on: has_cover ? first.cover_on : nil, pump_extra: first.pump_extra,
                    water_now: start_temp.round(1), comfort: Comfort.score(rows, warm_threshold: warm_threshold) }
       )
     end
@@ -43,7 +46,8 @@ module Recommenders
 
     # Water temp after hour +i+ starting from +temp+.
     def step(temp, decision, i)
-      physics.step(temp, decision.setpoint, pump_fraction: pump_on[i], air: air[i], cover_on: decision.cover_on)
+      physics.step(temp, decision.setpoint, pump_fraction: decision.pump_extra ? 1.0 : pump_on[i], air: air[i],
+                                            cover_on: decision.cover_on)
     end
 
     def run_stage(stage, temp, decision)
@@ -90,8 +94,8 @@ module Recommenders
         (stage.start...stage.stop).map do |i|
           temp = step(temp, decision, i)
           { t: hours[i], air: air[i].round(1), smoothed_air: day_air[i].round(1), desired: desired[i].round(1),
-            pool: temp.round(2), setpoint: decision.setpoint, cover_on: decision.cover_on, pump: pump_on[i].round(2),
-            party: party[i] }
+            pool: temp.round(2), setpoint: decision.setpoint, cover_on: decision.cover_on, pump: (decision.pump_extra ? 1.0 : pump_on[i]).round(2),
+            pump_extra: decision.pump_extra, party: party[i] }
         end
       end
     end
@@ -106,7 +110,7 @@ module Recommenders
       starts = water_at_stage_starts(decisions)
       (decisions.size - 2).downto(0) do |k|
         current, following = decisions[k], decisions[k + 1]
-        next unless current.cover_on == following.cover_on
+        next unless current.cover_on == following.cover_on && current.pump_extra == following.pump_extra
 
         stage = stages[k]
         reached = run_stage(stage, starts[k], current)
@@ -124,6 +128,29 @@ module Recommenders
       [ temp ] + stages.zip(decisions).map { |stage, decision| temp = run_stage(stage, temp, decision) }
     end
 
+    BOOST_LOOKAHEAD = 24 # hours past the stage to look for a shortfall
+
+    # May the pump run around the clock in this stage? Only when the normal pump hours
+    # can't keep up with the weather: starting on the ideal and heating flat out on the
+    # normal schedule, the water would still fall more than pump_boost_threshold short
+    # during the stage or the day after. This deliberately ignores the water's actual
+    # temperature, so being cooler never "unlocks" the option (the planner would learn
+    # to run cool). The water already being far below the ideal right now counts too.
+    def boost_needed?(stage, temp = nil)
+      return true if temp && stage.index.zero? && desired[stage.start] - temp > pump_boost_threshold
+
+      @boost_needed ||= {}
+      @boost_needed.fetch(stage.index) do
+        flat_out = Decision.new(setpoint: TargetCurve::MAX_POOL_TEMP, cover_on: has_cover)
+        water = desired[stage.start]
+        last = [ stage.stop + BOOST_LOOKAHEAD, hours.size ].min
+        @boost_needed[stage.index] = (stage.start...last).any? do |i|
+          water = step(water, flat_out, i)
+          desired[i] - water > pump_boost_threshold
+        end
+      end
+    end
+
     def stage_ideal(stage) = desired[stage.start...stage.stop].sum / (stage.stop - stage.start)
 
     def explain(decisions)
@@ -137,6 +164,7 @@ module Recommenders
         else "hold it at about #{water}°F"
         end
       action += cover_advice(decisions.first)
+      action += ", and run the pump around the clock until it catches up" if decisions.first.pump_extra
 
       if (next_party = party.index(:party)) && next_party < 48 && setpoint > ideal_today + 1
         return "Getting ready for your pool party at #{fmt_time(hours[next_party])} " \

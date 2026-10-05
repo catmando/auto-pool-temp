@@ -256,3 +256,18 @@ RSpec.describe Pool, "pump schedule" do
     expect(build(:pool, pump_on_2: "16:00", pump_off_2: "")).not_to be_valid
   end
 end
+
+RSpec.describe Pool, "pump running around the clock" do
+  let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
+  let(:air) { Pool::SteadyAir.new(65) }
+  let(:pool) { create(:pool, assumed_setpoint: 95, heat_rate_per_hour: 2, pump_on_1: "04:00", pump_off_1: "06:00", pump_on_2: "", pump_off_2: "") }
+
+  around { |example| travel_to(zone.local(2026, 10, 5, 12)) { example.run } }
+
+  it "heats outside the normal pump hours" do
+    pool.record_water_temp!(85, at: 3.hours.ago) # 9am-noon: pump normally off
+    normal = pool.estimated_water_temp(air: air)
+    pool.update!(pump_extended: true)
+    expect(pool.estimated_water_temp(air: air)).to be > normal + 4
+  end
+end

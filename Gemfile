@@ -65,5 +65,6 @@ end
 group :test do
   gem "webmock"
   gem "capybara"
+  gem "cuprite" # real-browser (Chrome) system specs for the JavaScript bits: js: true
   gem "shoulda-matchers"
 end

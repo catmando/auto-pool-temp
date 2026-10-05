@@ -193,3 +193,25 @@ RSpec.describe PoolCheck, "cover advice" do
     expect(Sms.sender.last_body).not_to include("cover")
   end
 end
+
+RSpec.describe PoolCheck, "pump advice" do
+  let(:pool) do
+    create(:pool, heat_rate_per_hour: 0.3, pump_on_1: "06:00", pump_off_1: "10:00", pump_on_2: "", pump_off_2: "",
+                  assumed_setpoint: 90)
+  end
+
+  it "tells you to run the pump around the clock, and assumes you did" do
+    pool.record_water_temp!(82)
+    described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
+    expect(Sms.sender.last_body).to include("run the pump around the clock until it warms up")
+    expect(pool.reload.pump_extended).to be true
+  end
+
+  it "tells you to go back to the normal schedule when it's no longer needed" do
+    pool.update!(pump_extended: true, assumed_setpoint: 91)
+    pool.record_water_temp!(91)
+    described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
+    expect(Sms.sender.last_body).to include("put the pump back on its normal schedule")
+    expect(pool.reload.pump_extended).to be false
+  end
+end

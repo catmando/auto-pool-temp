@@ -33,10 +33,10 @@ module ApplicationHelper
     return [] unless rows.first&.key?("setpoint")
 
     rows.each_with_index.filter_map { |row, i|
-      next unless i.zero? || row["setpoint"] != rows[i - 1]["setpoint"] || row["cover_on"] != rows[i - 1]["cover_on"]
+      next unless i.zero? || %w[setpoint cover_on pump_extra].any? { |k| row[k] != rows[i - 1][k] }
 
       before = i.zero? ? row : rows[i - 1]
-      { time: Time.zone.parse(row["t"]), now: i.zero?, setpoint: row["setpoint"], cover_on: row["cover_on"],
+      { time: Time.zone.parse(row["t"]), now: i.zero?, setpoint: row["setpoint"], cover_on: row["cover_on"], pump_extra: row["pump_extra"],
         water: before["pool"], ideal: row["desired"] }
     }.first(limit)
   end
@@ -49,8 +49,9 @@ module ApplicationHelper
     return if during.empty?
 
     before = rows.reverse.find { |r| Time.zone.parse(r["t"]) < party.starts_at } || during.first
+    day_air = during.first["smoothed_air"].to_f
     { air: during.sum { |r| r["air"].to_f } / during.size, target: during.first["desired"].to_f,
-      water: before["pool"].to_f }
+      usual: TargetCurve.for(party.pool).pool_temp_for(day_air), water: before["pool"].to_f }
   end
 
   # Deep link for a pending Telegram connection, or nil.

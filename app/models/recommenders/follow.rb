@@ -12,7 +12,7 @@ module Recommenders
       temp = start_temp
       stages.map do |stage|
         ideal = stage_ideal(stage)
-        decision = Decision.new(ideal.round, has_cover && temp <= ideal + 1)
+        decision = Decision.new(setpoint: ideal.round, cover_on: has_cover && temp <= ideal + 1)
         temp = run_stage(stage, temp, decision)
         decision
       end

@@ -18,7 +18,8 @@ module Recommenders
     def choose_decisions
       values = backward_values
       temp = start_temp
-      previous = Decision.new(current_setpoint || start_temp.round, has_cover && cover_on)
+      previous = Decision.new(setpoint: current_setpoint || start_temp.round, cover_on: has_cover && cover_on,
+                              pump_extra: pump_extended)
       stages.map do |stage|
         decision = best_decision(stage, temp, values[stage.index + 1], previous)
         temp = run_stage(stage, temp, decision)
@@ -27,7 +28,18 @@ module Recommenders
     end
 
     def actions
-      @actions ||= cover_options.flat_map { |cover| setpoints.map { |sp| Decision.new(sp, cover) } }
+      @actions ||= cover_options.flat_map { |cover| setpoints.map { |sp| Decision.new(setpoint: sp, cover_on: cover) } }
+    end
+
+    # Running the pump around the clock only makes sense for heating, with the cover on if there is one.
+    def boost_actions
+      @boost_actions ||= setpoints.map { |sp| Decision.new(setpoint: sp, cover_on: has_cover, pump_extra: true) }
+    end
+
+    # Starting to run the pump around the clock needs a big shortfall; once it is
+    # running, it may continue (until normal hours are noticeably better again).
+    def actions_for(stage, temp, already_extended: false)
+      already_extended || boost_needed?(stage, temp) ? actions + boost_actions : actions
     end
 
     def setpoints
@@ -53,7 +65,7 @@ module Recommenders
       stages.reverse_each do |stage|
         following = values[stage.index + 1]
         values[stage.index] = grid.map do |temp|
-          actions.map { |decision| stage_cost(stage, temp, decision, following) }.min
+          actions_for(stage, temp).map { |decision| stage_cost(stage, temp, decision, following) }.min
         end
       end
       values
@@ -65,7 +77,14 @@ module Recommenders
     #     back on once off stops being noticeably better)
     #   - the heater setting stays as it is unless a change is noticeably better
     def best_decision(stage, temp, following, previous)
-      costs = actions.to_h { |decision| [ decision, stage_cost(stage, temp, decision, following) ] }
+      costs = actions_for(stage, temp, already_extended: previous.pump_extra)
+              .to_h { |decision| [ decision, stage_cost(stage, temp, decision, following) ] }
+      best = costs.values.min
+
+      # The pump stays on its normal schedule unless running it around the clock is
+      # noticeably better (and goes back once it stops being noticeably better).
+      normal = costs.reject { |d, _| d.pump_extra }
+      costs = normal if normal.values.min <= best + KEEP_SETTING_SLACK
       best = costs.values.min
 
       covered = costs.select { |d, _| d.cover_on }
@@ -74,7 +93,7 @@ module Recommenders
         best = costs.values.min
       end
 
-      keep = previous.with(cover_on: costs.keys.first.cover_on)
+      keep = previous.with(cover_on: costs.keys.first.cover_on, pump_extra: costs.keys.first.pump_extra)
       return keep if costs[keep] && costs[keep] <= best + KEEP_SETTING_SLACK
 
       # Ties happen when the water can't reach any of them before the next check (every
