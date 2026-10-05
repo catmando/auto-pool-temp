@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_300000) do
   create_table "forecast_snapshots", force: :cascade do |t|
     t.integer "pool_id", null: false
     t.string "name", null: false
@@ -21,6 +21,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_200000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["pool_id"], name: "index_forecast_snapshots_on_pool_id"
+  end
+
+  create_table "pool_logs", force: :cascade do |t|
+    t.integer "pool_id", null: false
+    t.string "kind", null: false
+    t.datetime "logged_at", null: false
+    t.decimal "water_temp", precision: 5, scale: 2
+    t.decimal "expected_water_temp", precision: 5, scale: 2
+    t.integer "setpoint"
+    t.string "source", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pool_id", "logged_at"], name: "index_pool_logs_on_pool_id_and_logged_at"
+    t.index ["pool_id"], name: "index_pool_logs_on_pool_id"
   end
 
   create_table "pool_parties", force: :cascade do |t|
@@ -136,6 +150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_200000) do
   end
 
   add_foreign_key "forecast_snapshots", "pools"
+  add_foreign_key "pool_logs", "pools"
   add_foreign_key "pool_parties", "pools"
   add_foreign_key "pools", "forecast_snapshots", column: "test_snapshot_id", on_delete: :nullify
   add_foreign_key "pools", "users"

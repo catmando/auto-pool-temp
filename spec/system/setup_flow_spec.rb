@@ -28,7 +28,7 @@ RSpec.describe "Setting up the app" do
 
     click_link "Dashboard"
     expect(page).to have_content("Set heater to") # the dashboard plans on its own
-    click_button "Send alert now if needed"
+    page.driver.submit :post, checks_path, notify: "1" # what the scheduled check does
     expect(page).to have_content("sent an alert by Telegram")
     expect(TelegramBot.sender.deliveries.last).to include(to: "9001")
     expect(page).to have_css("svg.chart .line.pool")
@@ -44,9 +44,9 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Test mode off")
 
     click_link "Dashboard"
-    fill_in "Water is", with: "86"
-    within(:xpath, "//section[.//h2[text()='Water temperature']]") { click_button "Update" }
-    expect(page).to have_content("the water is 86°F")
+    fill_in "Measured", with: "86"
+    click_button "Log it"
+    expect(page).to have_content("Logged the water at 86°F")
 
     click_link "Lab"
     expect(page).to have_content("Planner lab")

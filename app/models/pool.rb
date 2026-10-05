@@ -9,6 +9,7 @@ class Pool < ApplicationRecord
   belongs_to :test_snapshot, class_name: "ForecastSnapshot", optional: true
   has_many :forecast_snapshots, dependent: :destroy
   has_many :pool_parties, dependent: :destroy
+  has_many :pool_logs, dependent: :destroy
   has_many :recommendations, dependent: :destroy
   has_many :text_messages, dependent: :nullify
 

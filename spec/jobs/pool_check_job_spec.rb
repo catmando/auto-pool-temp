@@ -16,3 +16,11 @@ RSpec.describe PoolCheckJob do
     expect { described_class.perform_now(pool) }.to have_enqueued_job(described_class)
   end
 end
+
+RSpec.describe PoolCheckJob, "refreshing the dashboard" do
+  it "pushes a refresh after a scheduled check" do
+    pool = create(:pool)
+    expect(Turbo::StreamsChannel).to receive(:broadcast_refresh_to).with(pool)
+    described_class.perform_now(pool)
+  end
+end

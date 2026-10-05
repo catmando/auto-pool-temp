@@ -55,19 +55,11 @@ class PoolCheck
   def notified? = recommendation&.notified?
 
   def self.message_for(pool, result, previous)
-    assumption =
-      if previous
-        "I'm assuming it's set to #{previous}°F now. If not, reply with the actual setting (e.g. \"84\")."
-      else
-        "I don't know its current setting, so reply with it (e.g. \"84\") if it's different."
-      end
+    ask = "Reply DONE once it's set, and add the water temperature if you have it (e.g. \"done 86\")."
     [ "#{pool.name}: set the heater to #{result.target}°F#{cover_instruction(pool, result)}#{pump_instruction(pool, result)}.",
-      result.reason,
-      upcoming_changes(pool, result), assumption ]
-      .compact.join(" ")
+      result.reason, upcoming_changes(pool, result), ask ].compact.join(" ")
   end
 
-  # "Coming up: Tue 7am 96°F, Wed 5pm 93°F." from the plan, if it has one.
   # ", and run the pump around the clock" / ", and put the pump back on its normal schedule".
   def self.pump_instruction(pool, result)
     wanted = result.details[:pump_extra]

@@ -65,7 +65,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 460 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 498 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -161,7 +161,20 @@ Single user for now; sign-up closes after the first account.
     the dashboard; the owner asked to remove it from Settings (2026-10-04). The dashboard cards distinguish the heater dial (only used to decide
     alerts) from the measured water temp (where the plan starts); the owner confused them on 2026-10-04
     (settings, heater setting, water reading, test mode). The "Preview now" button is gone.
-- Water temperature: `pool.estimated_water_temp(time)` advances the last known value (reported with
+- **Dashboard top:** Current water temp (1/3: estimate, "Measured / Log it", last reading vs expected) and
+  Recommended settings (2/3: Heater, Pump normal / leave on 24 hours, Pool cover on/off, reason). The old
+  "Heater is set to" card and "Send alert now" button are gone (2026-10-05).
+- **Owner reports are logged, not used yet** (`PoolLog`): water readings (dashboard or "water 86" reply) and
+  "done" confirmations after an alert ("done" / "done 86" / "ok" / "yes"), each with the model's expected
+  water temp at that moment. A confirmation also re-records the heater setting as changed at that time.
+  Later: use these to tune each pool's model. Alerts end with "Reply DONE once it's set, and add the water
+  temperature if you have it."
+- **Live dashboard:** `RefreshPlansJob` (hourly, minute 2) re-plans each pool and
+  `Turbo::StreamsChannel.broadcast_refresh_to(pool)`; `PoolCheckJob` does the same after a scheduled check.
+  The dashboard subscribes (`turbo_stream_from pool`) and refreshes by morphing in place. Production uses Solid
+  Cable; Action Cable only accepts signed-in users.
+- **Advanced → "Send test message"** sends a test alert to the connected chat (`TestMessagesController`).
+- Water temperature (estimate): `pool.estimated_water_temp(time)` advances the last known value (reported with
   "water 86" by reply or on the dashboard, or banked by `record_setpoint!`) toward the heater setting.
   With nothing known, it's assumed to match the setting.
 - `PoolCheck` fetches the forecast, runs the recommender, saves a `Recommendation`, and

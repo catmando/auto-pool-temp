@@ -5,12 +5,13 @@ RSpec.describe "Reporting the water temperature" do
 
   before { sign_in_as(pool.user) }
 
-  it "records a reading" do
-    patch water_temp_path, params: { water_temp: "86.5" }
-    expect(response).to redirect_to(root_path)
-    expect(pool.reload).to have_attributes(water_temp: 86.5, water_temp_source: "reported")
+  it "logs a reading with what the model expected, without changing the plan's inputs" do
+    expect { patch water_temp_path, params: { water_temp: "86.5" } }.to change(pool.pool_logs, :count).by(1)
+    expect(pool.pool_logs.last).to have_attributes(kind: "water_reading", water_temp: 86.5, expected_water_temp: 90, source: "web")
+    expect(flash[:notice]).to eq("Logged the water at 86.5°F (expected about 90°F).")
+    expect(pool.reload.water_temp).to be_nil
     follow_redirect!
-    expect(response.body).to include("your reading of 87°F")
+    expect(response.body).to include("Last reading 87°F")
   end
 
   it "rejects nonsense" do

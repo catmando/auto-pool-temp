@@ -1,50 +1,37 @@
 <% pool = current_pool %>
 <% water = pool.estimated_water_temp %>
-<div class="grid3">
-  <section class="card">
-    <h2>Heater is set to</h2>
-    <p class="big"><%= degrees(pool.assumed_setpoint) %></p>
-    <p class="muted"><%= setpoint_source_label(pool.setpoint_source) %><% if pool.setpoint_updated_at %>, <%= local_time(pool.setpoint_updated_at) %><% end %></p>
-    <p class="hint">What the heater dial says. Used to decide when to alert you; the plan itself starts from the water temperature.</p>
-<% if pool.pump_extended? %>
-  <p>Pump is <strong>running around the clock</strong>
-    <%= button_to "It's back on its schedule", pump_path, method: :patch, params: { extended: "0" }, class: "button secondary" %></p>
-<% end %>
-    <% if pool.has_cover? %>
-      <p>Cover is <strong><%= pool.cover_on? ? "on" : "off" %></strong>
-        <%= button_to(pool.cover_on? ? "It's off" : "It's on", cover_path, method: :patch, params: { on: pool.cover_on? ? "0" : "1" }, class: "button secondary") %></p>
-    <% end %>
-    <%= form_with url: setpoint_path, method: :patch, class: "inline" do |f| %>
-      <label>Heater is at <%= f.number_field :assumed_setpoint, min: 40, max: 110, value: pool.assumed_setpoint, class: "short" %>°F</label>
-      <%= f.submit "Update", class: "button secondary" %>
-    <% end %>
-  </section>
-
-  <section class="card">
-    <h2>Water temperature</h2>
+<%= turbo_stream_from pool %><%# hourly re-plans and scheduled checks refresh this page %>
+<div class="top-row">
+  <section class="card water-card">
+    <h2>Current water temp</h2>
     <p class="big"><%= water ? "~#{degrees(water)}" : "—" %></p>
-    <p class="muted"><%= water_source_label(pool) %></p>
-    <p class="hint">Measured with a thermometer, or the heater display. The plan starts from this.</p>
+    <p class="muted">Expected from the plan, the weather, and your pump schedule.</p>
     <%= form_with url: water_temp_path, method: :patch, class: "inline" do |f| %>
-      <label>Water is <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
-      <%= f.submit "Update", class: "button secondary" %>
+      <label>Measured <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
+      <%= f.submit "Log it", class: "button secondary" %>
+    <% end %>
+    <% if (reading = pool.pool_logs.recent.where.not(water_temp: nil).first) %>
+      <p class="hint">Last reading <%= degrees(reading.water_temp) %>, <%= local_time(reading.logged_at) %><% if reading.expected_water_temp %> (expected <%= degrees(reading.expected_water_temp) %>)<% end %>.</p>
     <% end %>
   </section>
 
-  <section class="card">
-    <h2>Recommendation</h2>
+  <section class="card settings-card">
+    <h2>Recommended settings</h2>
     <% if @recommendation %>
-      <p class="big"><%= degrees(@recommendation.target_temp) %></p>
+      <% pump_extra = @recommendation.details&.dig("pump_extra") %>
+      <% cover_on = @recommendation.details&.dig("cover_on") %>
+      <dl class="settings">
+        <div><dt>Heater</dt><dd><%= degrees(@recommendation.target_temp) %></dd></div>
+        <div><dt>Pump</dt><dd><%= pump_extra ? "Leave on 24 hours" : "Normal schedule" %>
+          <% unless pump_extra %><span class="muted">(<%= pool.pump_schedule.describe %>)</span><% end %></dd></div>
+        <% if pool.has_cover? && !cover_on.nil? %>
+          <div><dt>Pool cover</dt><dd><%= cover_on ? "On" : "Off" %></dd></div>
+        <% end %>
+      </dl>
       <p><%= @recommendation.reason %></p>
-      <p class="muted">
-        Updated <%= local_time(@recommendation.created_at) %> · <%= @recommendation.strategy %> ·
-        <%= @recommendation.notified? ? "alert sent" : "no alert" %>
-      </p>
+      <p class="muted">Updated <%= local_time(@recommendation.created_at) %><%= " · alert sent" if @recommendation.notified? %></p>
     <% else %>
-      <p class="muted">No checks yet.</p>
-    <% end %>
-    <% unless pool.test_mode? %>
-      <%= button_to "Send alert now if needed", checks_path, params: { notify: "1" }, class: "button secondary" %>
+      <p class="muted">No plan yet.</p>
     <% end %>
   </section>
 </div>

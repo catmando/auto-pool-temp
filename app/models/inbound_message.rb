@@ -2,7 +2,8 @@
 #   "/start <token>"         -> (Telegram) link this chat to a pool
 #   "123456"                 -> (SMS) phone confirmation code
 #   "84" / "84F" / "set 84"  -> heater is actually at 84°F; re-check and advise
-#   "water 86" / "w 86"      -> the water itself is 86°F; re-plan from there
+#   "done" / "done 86"       -> I set it as the alert said (and the water is 86°F); logged
+#   "water 86" / "w 86"      -> the water itself is 86°F; logged with what the model expected
 #   "cover on" / "cover off" -> the pool cover is now on / off
 #   "pump on" / "pump normal" -> the pump is running around the clock / back on its schedule
 #   "status" / "?"           -> what the heater should be set to now
@@ -10,7 +11,8 @@
 #   anything else            -> help
 # Replies go back on the same channel, to the sender.
 class InboundMessage
-  HELP = "Reply with your heater's current setting (e.g. \"84\"), the water temperature (e.g. \"water 86\"), STATUS for the current recommendation, " \
+  HELP = "Reply DONE once you've made the change (add the water temp if you have it, e.g. \"done 86\"), " \
+         "your heater's current setting (e.g. \"84\"), the water temperature (e.g. \"water 86\"), STATUS for the current recommendation, " \
          "or PAUSE / RESUME to turn alerts off or on."
 
   def self.handle(**options) = new(**options).handle
@@ -80,6 +82,8 @@ class InboundMessage
     when /\Acover\s+(on|off)\z/, /\A(?:\/)?cover(on|off)\z/
       pool.record_cover!($1 == "on", at: @now)
       "Got it, the cover is #{$1}."
+    when /\A(?:done|ok|okay|yes|y|👍)[\s,.!]*(?:(?:water|pool|w)\s*(?:is|at|=|:)?\s*)?(\d{2,3}(?:\.\d+)?)?\s*°?\s*f?\z/
+      confirmed($1&.to_f, pool)
     when /\A(?:water|pool|w)\s*(?:is|at|=|:)?\s*(\d{2,3}(?:\.\d+)?)\s*°?\s*f?\z/
       water_reported($1.to_f, pool)
     when /\A(?:set\s*(?:to)?\s*)?(\d{2,3})\s*°?\s*f?\z/
@@ -122,18 +126,26 @@ class InboundMessage
     end
   end
 
+  # Logged with what the model expected; not used by the planner yet.
   def water_reported(value, pool)
     return "#{value.round}°F doesn't look like a water temperature. #{HELP}" unless (32..110).cover?(value)
 
-    pool.record_water_temp!(value, at: @now)
-    check = PoolCheck.call(pool, notify: false, now: @now, weather: @weather)
-    target = check.recommendation.target_temp
-    if pool.needs_change?(target)
-      pool.record_setpoint!(target, source: "recommended", at: @now)
-      "Thanks, water is #{fmt_degrees(value)}°F. Set the heater to #{target}°F. #{check.recommendation.reason}"
-    else
-      "Thanks, water is #{fmt_degrees(value)}°F. The heater setting is fine as is (#{target}°F)."
-    end
+    log = PoolLog.water_reading!(pool, value, source: @channel, at: @now)
+    "Thanks, logged the water at #{fmt_degrees(value)}°F#{expected_note(log)}."
+  end
+
+  # "Done": the heater was set as the last alert said, now. Logged, with a reading if given.
+  def confirmed(value, pool)
+    return "#{value.round}°F doesn't look like a water temperature. #{HELP}" if value && !(32..110).cover?(value)
+
+    log = PoolLog.confirm_setting!(pool, water_temp: value, source: @channel, at: @now)
+    setting = pool.assumed_setpoint ? "the heater at #{pool.assumed_setpoint}°F" : "your change"
+    water = value ? " and the water at #{fmt_degrees(value)}°F#{expected_note(log)}" : ""
+    "Thanks, logged #{setting}#{water}."
+  end
+
+  def expected_note(log)
+    log.expected_water_temp ? " (I expected about #{log.expected_water_temp.round}°F)" : ""
   end
 
   def fmt_degrees(value) = (value % 1).zero? ? value.to_i.to_s : value.round(1).to_s

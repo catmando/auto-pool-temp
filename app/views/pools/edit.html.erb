@@ -104,6 +104,12 @@
       </label>
     </div>
 
+    <h3>Alerts</h3>
+    <p>
+      <button type="submit" form="test-message-form" class="button secondary">Send test message</button>
+      <span class="hint">Sends a message to <%= pool.contact_verified? ? "your #{pool.channel_label} chat" : "your alerts (once Telegram is connected)" %> so you can see how alerts look.</span>
+    </p>
+
     <h3>Planning</h3>
     <div class="fields">
       <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
@@ -123,6 +129,8 @@
     <span class="save-status muted" data-autosave-target="status" aria-live="polite">Changes save automatically.</span>
   </div>
 <% end %>
+
+<%= form_with url: test_message_path, id: "test-message-form", html: { hidden: true } do %><% end %>
 
 <details class="card advanced" id="test-mode">
   <summary><h2>Test mode</h2></summary>

@@ -31,8 +31,8 @@ RSpec.describe PoolCheck do
       check
       expect(sender.deliveries.size).to eq(1)
       body = sender.deliveries.first[:body]
-      expect(body).to include("set the heater to #{pool.recommendations.last.target_temp}°F", "assuming it's set to 85°F",
-                              "reply with the actual setting")
+      expect(body).to include("set the heater to #{pool.recommendations.last.target_temp}°F",
+                              "Reply DONE once it's set", "add the water temperature if you have it")
     end
 
     it "assumes the user follows the advice" do
@@ -66,9 +66,9 @@ RSpec.describe PoolCheck do
   context "when the current setting is unknown" do
     before { pool.update!(assumed_setpoint: nil) }
 
-    it "texts and says so" do
+    it "texts and asks for confirmation" do
       check
-      expect(sender.deliveries.first[:body]).to include("don't know its current setting", "reply with it")
+      expect(sender.deliveries.first[:body]).to include("Reply DONE")
     end
   end
 

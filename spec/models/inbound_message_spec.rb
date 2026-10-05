@@ -147,15 +147,19 @@ RSpec.describe InboundMessage, "water reports" do
   %w[water\ 86 w86 Water\ is\ 86.5F pool:\ 86].each do |body|
     it "understands #{body.inspect}" do
       reply(body)
-      expect(pool.reload.water_temp_source).to eq("reported")
-      expect(sender.last_body).to start_with("Thanks, water is 86")
+      expect(pool.pool_logs.last).to have_attributes(kind: "water_reading", source: "telegram")
+      expect(pool.pool_logs.last.water_temp.to_f).to be_between(86, 86.5)
+      expect(sender.last_body).to start_with("Thanks, logged the water at 86")
     end
   end
 
-  it "re-plans from the reported water temperature" do
+  it "logs the reading with what the model expected, without changing the plan" do
     pool.update!(assumed_setpoint: 84)
-    reply("water 80")
-    expect(sender.last_body).to include("Set the heater to")
+    expect { reply("water 80") }.to change(pool.pool_logs, :count).by(1)
+    log = pool.pool_logs.last
+    expect(log).to have_attributes(kind: "water_reading", water_temp: 80, source: "telegram", expected_water_temp: 84)
+    expect(sender.last_body).to eq("Thanks, logged the water at 80°F (I expected about 84°F).")
+    expect(pool.reload.water_temp_source).to be_nil # the model isn't adjusted yet
   end
 
   it "rejects implausible readings" do
@@ -191,5 +195,37 @@ RSpec.describe InboundMessage, "pump replies" do
     reply("Pump normal")
     expect(pool.reload.pump_extended).to be false
     expect(sender.last_body).to include("back on its normal schedule")
+  end
+end
+
+RSpec.describe InboundMessage, "confirming an alert" do
+  let!(:pool) { create(:pool, :telegram, assumed_setpoint: 94) }
+  let(:sender) { FakeSmsSender.new }
+
+  def reply(body, at: Time.current) = described_class.handle(channel: "telegram", from: "424242", body: body, sender: sender, now: at)
+
+  %w[done DONE Done! ok yes 👍].each do |word|
+    it "logs #{word.inspect} as the heater being set, now" do
+      freeze_time do
+        reply(word)
+        expect(pool.pool_logs.last).to have_attributes(kind: "setting_confirmed", setpoint: 94, water_temp: nil, logged_at: Time.current)
+        expect(pool.reload.setpoint_updated_at).to eq(Time.current) # assume the change happened when confirmed
+        expect(sender.last_body).to eq("Thanks, logged the heater at 94°F.")
+      end
+    end
+  end
+
+  [ "done 86", "done, 86", "Done water 86", "ok 86F" ].each do |body|
+    it "logs a water reading along with #{body.inspect}" do
+      reply(body)
+      expect(pool.pool_logs.last).to have_attributes(kind: "setting_confirmed", setpoint: 94, water_temp: 86)
+      expect(sender.last_body).to start_with("Thanks, logged the heater at 94°F and the water at 86°F")
+    end
+  end
+
+  it "still treats a bare number as the heater's actual setting" do
+    reply("90")
+    expect(pool.reload.assumed_setpoint).not_to be_nil
+    expect(pool.pool_logs.where(kind: "setting_confirmed")).to be_empty
   end
 end

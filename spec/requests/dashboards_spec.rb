@@ -11,12 +11,14 @@ RSpec.describe "Dashboard" do
     expect(response).to redirect_to(edit_pool_path)
   end
 
-  it "shows the setting, water estimate, plan, and schedule" do
+  it "leads with the current water temp and the recommended settings" do
     get root_path
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("88°F", "assumed: you followed the last alert", "~88°F", "assumed to match the heater",
-                                     "Updated", "Austin, Texas, US", "alerts go to Telegram", "Send alert now if needed")
-    expect(response.body).not_to include("Preview now")
+    body = response.body
+    expect(body.index("Current water temp")).to be < body.index("Recommended settings")
+    expect(body).to include("~88°F", "<dt>Heater</dt>", "<dt>Pump</dt>", "Normal schedule", "Updated",
+                            "Austin, Texas, US", "alerts go to Telegram")
+    expect(body).not_to include("Heater is set to", "Send alert now", "Preview now")
   end
 
   describe "keeping the plan current (without sending anything)" do
@@ -38,11 +40,11 @@ RSpec.describe "Dashboard" do
       end
     end
 
-    it "re-plans when a water reading comes in" do
+    it "doesn't re-plan for a logged water reading (readings don't feed the model yet)" do
       get root_path
       travel 1.minute do
         patch water_temp_path, params: { water_temp: "85" }
-        expect { get root_path }.to change(pool.recommendations, :count).by(1)
+        expect { get root_path }.not_to change(pool.recommendations, :count)
       end
     end
 
@@ -86,5 +88,19 @@ RSpec.describe "Dashboard" do
     create(:text_message, pool: pool, body: "Set the heater to 93°F.")
     get root_path
     expect(response.body).to include("Set the heater to 93°F.")
+  end
+end
+
+RSpec.describe "Dashboard live updates" do
+  let(:pool) { create(:pool, :telegram) }
+
+  before { sign_in_as(pool.user) }
+
+  it "subscribes to the pool's updates and refreshes by morphing in place" do
+    get root_path
+    expect(response.body).to include("<turbo-cable-stream-source", 'name="turbo-refresh-method" content="morph"',
+                                     'name="turbo-refresh-scroll" content="preserve"')
+    signed = Turbo::StreamsChannel.signed_stream_name(pool)
+    expect(response.body).to include(signed)
   end
 end

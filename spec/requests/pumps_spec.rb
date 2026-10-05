@@ -5,9 +5,9 @@ RSpec.describe "Pump running around the clock" do
 
   before { sign_in_as(pool.user) }
 
-  it "shows on the dashboard and can be switched back" do
+  it "shows the recommended pump setting on the dashboard, and records a change" do
     get root_path
-    expect(response.body).to include("running around the clock")
+    expect(response.body).to match(%r{<dt>Pump</dt><dd>(Normal schedule|Leave on 24 hours)})
     patch pump_path, params: { extended: "0" }
     expect(pool.reload.pump_extended).to be false
     expect(flash[:notice]).to include("normal schedule")

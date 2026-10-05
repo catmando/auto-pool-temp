@@ -5,9 +5,9 @@ RSpec.describe "Pool cover" do
 
   before { sign_in_as(pool.user) }
 
-  it "shows the cover state on the dashboard and records a change" do
+  it "shows the recommended cover setting on the dashboard, and records a change" do
     get root_path
-    expect(response.body).to include("Cover is <strong>on</strong>")
+    expect(response.body).to match(%r{<dt>Pool cover</dt><dd>(On|Off)</dd>})
     patch cover_path, params: { on: "0" }
     expect(pool.reload.cover_on).to be false
     expect(flash[:notice]).to eq("Got it, the cover is off.")
@@ -16,7 +16,7 @@ RSpec.describe "Pool cover" do
   it "hides the cover for pools without one" do
     pool.update!(has_cover: false)
     get root_path
-    expect(response.body).not_to include("Cover is")
+    expect(response.body).not_to include("Pool cover</dt>")
   end
 
   it "has the cover checkbox and cooling factor on Settings" do

@@ -10,6 +10,8 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
+    <%# Pages pushed a refresh (hourly re-plan, scheduled checks) update in place. %>
+    <%= turbo_refreshes_with method: :morph, scroll: :preserve %>
     <%= yield :head %>
 
     <link rel="icon" href="/icon.png" type="image/png">
