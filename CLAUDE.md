@@ -11,9 +11,17 @@ Owner: Mitch (GitHub `catmando`). Repo: https://github.com/catmando/auto-pool-te
 Single user for now; sign-up closes after the first account.
 
 ## Requirements (from the owner)
-- The target pool temp is a straight line from outside air temp. Default anchors are
-  95°F air → 80°F pool and 35°F air → 102°F pool. Both anchors are user-adjustable.
-  **The line keeps extrapolating past the anchors (no clamping), by owner's choice.**
+- The target pool temp is a straight line from outside air temp. Default anchors (since 2026-10-05) are
+  95°F air → 75°F pool and 35°F air → 98°F pool, in the hidden **Advanced** settings. The line extrapolates past
+  the anchors, but the ideal is **capped at 104°F** (safety), and so are heater settings.
+- Users mostly see one **comfort slider, -10..+10°F** ("I like it warmer/cooler") added to the ideal
+  (`pool.comfort_adjustment`). Advanced (collapsed): curve anchors, warm-day threshold, heat rate,
+  cooling factor, min change, planner. Test mode is collapsed too.
+- **Pool party mode** (`PoolParty`): a date (window defaults to noon until midnight) and a 0..+10 boost that
+  *replaces* the comfort adjustment during the window. The water must be on target **when the party starts**:
+  `Comfort` weights party hours 20x, and in the 24h before and 48h after, extra warmth barely counts
+  (`:around`), so the planner pre-heats and cools off afterward freely. The dashboard shows each party's
+  outlook (outside air, target, water at start) from the current plan.
 - Heater rate **°F per hour** (the owner's: 2). Heat loss/gain to the air follows the owner's standard model
   (`PoolEnvironment`, 2026-10-05), times a **cooling factor** (default 1):
   - cover on: 100°F water at 35°F air loses ~3°F/day, proportional to the water-air gap; air warmer than the
@@ -38,7 +46,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 377 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 381 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -98,6 +106,10 @@ Single user for now; sign-up closes after the first account.
   a setting plus cover on/off (`SchedulePlanner::Decision`). scores it with
   `Comfort`, merges multi-day ramps into one setting change (`merge_ramps`: while the water is moving
   flat out, a further setting does the same thing), and writes the reason text.
+  - **Change discipline** (`Search#best_decision`): the cover stays on unless off is noticeably better, and
+    the setting stays put unless a change is noticeably better (`KEEP_SETTING_SLACK` = 2 °F·hours). At 0.5 the
+    plan flip-flopped (91/92) about every check in steady weather (~19 changes in 16 days); found and fixed
+    2026-10-05. Planning starts from the pool's actual heater setting (`current_setpoint`).
   - `search` (default): dynamic programming over water temperature (0.5°F grid) and integer settings,
     over the whole 16-day forecast, minimizing total discomfort. It prefers keeping the current setting
     unless a change helps noticeably (`KEEP_SETTING_SLACK`), and breaks ties toward the next day's ideal.

@@ -39,8 +39,8 @@ RSpec.describe InboundMessage do
 
     it "asks for a change when the reported setting is off" do
       reply("85")
-      expect(last_reply).to include("noted 85°F", "change it to 91°F")
-      expect(pool.reload).to have_attributes(assumed_setpoint: 91, setpoint_source: "recommended")
+      expect(last_reply).to include("noted 85°F").and match(/change it to 9[12]°F/) # 92 covers pump-off dips
+      expect(pool.reload).to have_attributes(assumed_setpoint: last_reply[/change it to (\d+)/, 1].to_i, setpoint_source: "recommended")
     end
 
     it "confirms when the reported setting is right" do

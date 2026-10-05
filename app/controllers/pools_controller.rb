@@ -30,7 +30,7 @@ class PoolsController < ApplicationController
   end
 
   def pool_params
-    params.expect(pool: %i[name hot_air_temp hot_pool_temp cold_air_temp cold_pool_temp warm_day_threshold
+    params.expect(pool: %i[name comfort_adjustment hot_air_temp hot_pool_temp cold_air_temp cold_pool_temp warm_day_threshold
                            heat_rate_per_hour cooling_factor has_cover pump_on_1 pump_off_1 pump_on_2 pump_off_2
                            checks_per_day min_change notifications_enabled strategy])
   end

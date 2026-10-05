@@ -81,26 +81,44 @@ RSpec.describe Recommenders::Search do
   end
 end
 
-RSpec.describe Recommenders::Search, "warm-day threshold" do
-  # The owner's test: with the water at 95 on the Rochester Oct 4 forecast (cool
-  # fall days, ~50-65°F air), the usual 80°F threshold makes every day a "cool
-  # day", so the planner leans warm. Dropping the threshold to 40 makes every day
-  # a "warm day", so it should lean cool instead.
+RSpec.describe Recommenders::Search, "a hot spell with the warm-day threshold at 40" do
+  # The owner's test (2026-10-05): the Rochester Oct 4 forecast with every air
+  # temperature 30°F higher (daily averages ~80-95°F), and the warm-day
+  # threshold at 40 so every day counts as warm (a cooler pool is the fine
+  # direction). The water should sit at or below the ideal, except where even
+  # the coolest the pool can possibly be (heater never on, cover off) is still
+  # above it: hot air warms the water faster than evaporation can cool it.
   let(:scenario) { PlannerBenchmark.new.scenarios.find { |s| s.key == "rochester_2026_10_04" } }
   let(:pool) { PlannerBenchmark.pool }
+  let(:hot) do
+    Weather::Forecast.new(scenario.forecast.points.map { |p| Weather::Forecast::Point.new(p.time, p.temp + 30) },
+                          time_zone: scenario.forecast.time_zone)
+  end
+  let(:result) do
+    described_class.new(forecast: hot, now: scenario.now, check_times: pool.check_times_between(scenario.now, hot.end_time),
+                        **Recommenders::Base.pool_options(pool).merge(warm_threshold: 40)).call
+  end
+  let(:rows) { result.details[:series] }
 
-  def offset(threshold)
-    described_class.new(forecast: scenario.forecast, now: scenario.now, water_temp: 95,
-                        check_times: pool.check_times_between(scenario.now, scenario.forecast.end_time),
-                        **Recommenders::Base.pool_options(pool).merge(warm_threshold: threshold))
-                   .call.details[:comfort][:mean_offset]
+  # The coolest possible water, hour by hour: heater never on, cover always off.
+  let(:coolest) do
+    physics = PoolPhysics.new(heat_rate: 2, pump: pool.pump_schedule, environment: PoolEnvironment.new)
+    temp = rows.first[:desired]
+    rows.map { |r| temp = physics.step(temp, nil, air: r[:air], cover_on: false) }
   end
 
-  it "runs warmer than ideal when it's a cool day (threshold 80)" do
-    expect(offset(80)).to be > 0
+  it "keeps the expected water at or below the ideal, or as cool as the pool can get" do
+    rows.each_with_index do |row, i|
+      expect(row[:pool]).to be <= [ row[:desired], coolest[i] ].max + 0.3, "at #{row[:t]}"
+    end
   end
 
-  it "runs cooler than ideal when it counts as a warm day (threshold 40)" do
-    expect(offset(40)).to be < 0
+  it "runs cool on average" do
+    expect(result.details[:comfort][:mean_offset]).to be <= rows.each_index.sum { |i| [ coolest[i] - rows[i][:desired], 0 ].max } / rows.size + 0.1
+  end
+
+  it "never asks the heater for more than the ideal, and takes the cover off" do
+    expect(rows.map { |r| r[:setpoint] }.max).to be <= rows.map { |r| r[:desired] }.max.ceil
+    expect(rows.count { |r| r[:cover_on] == false }).to be > rows.size / 2
   end
 end

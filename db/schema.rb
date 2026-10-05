@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_100000) do
   create_table "forecast_snapshots", force: :cascade do |t|
     t.integer "pool_id", null: false
     t.string "name", null: false
@@ -23,6 +23,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
     t.index ["pool_id"], name: "index_forecast_snapshots_on_pool_id"
   end
 
+  create_table "pool_parties", force: :cascade do |t|
+    t.integer "pool_id", null: false
+    t.datetime "starts_at", null: false
+    t.datetime "ends_at", null: false
+    t.integer "boost", default: 5, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pool_id", "starts_at"], name: "index_pool_parties_on_pool_id_and_starts_at"
+    t.index ["pool_id"], name: "index_pool_parties_on_pool_id"
+  end
+
   create_table "pools", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "name", default: "My Pool", null: false
@@ -31,9 +42,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
     t.decimal "longitude", precision: 9, scale: 6
     t.string "time_zone", default: "UTC", null: false
     t.decimal "hot_air_temp", precision: 5, scale: 1, default: "95.0", null: false
-    t.decimal "hot_pool_temp", precision: 5, scale: 1, default: "80.0", null: false
+    t.decimal "hot_pool_temp", precision: 5, scale: 1, default: "75.0", null: false
     t.decimal "cold_air_temp", precision: 5, scale: 1, default: "35.0", null: false
-    t.decimal "cold_pool_temp", precision: 5, scale: 1, default: "102.0", null: false
+    t.decimal "cold_pool_temp", precision: 5, scale: 1, default: "98.0", null: false
     t.string "phone_number"
     t.integer "checks_per_day", default: 2, null: false
     t.integer "min_change", default: 1, null: false
@@ -68,6 +79,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
     t.boolean "has_cover", default: false, null: false
     t.boolean "cover_on", default: true, null: false
     t.decimal "cooling_factor", precision: 4, scale: 2, default: "1.0", null: false
+    t.integer "comfort_adjustment", default: 0, null: false
     t.index ["phone_number"], name: "index_pools_on_phone_number"
     t.index ["telegram_chat_id"], name: "index_pools_on_telegram_chat_id"
     t.index ["telegram_link_token"], name: "index_pools_on_telegram_link_token", unique: true
@@ -122,6 +134,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_020000) do
   end
 
   add_foreign_key "forecast_snapshots", "pools"
+  add_foreign_key "pool_parties", "pools"
   add_foreign_key "pools", "forecast_snapshots", column: "test_snapshot_id", on_delete: :nullify
   add_foreign_key "pools", "users"
   add_foreign_key "recommendations", "pools"

@@ -14,6 +14,11 @@ module ApplicationHelper
       "user_reported" => "you reported it" }.fetch(source.to_s, "not yet known")
   end
 
+  def comfort_label(adjustment)
+    adjustment = adjustment.to_i
+    adjustment.zero? ? "As is" : "#{adjustment.positive? ? "+" : "−"}#{adjustment.abs}°F"
+  end
+
   def water_source_label(pool)
     return "not known yet. Enter a reading, or it's assumed to match the heater" if pool.water_temp.nil? && pool.assumed_setpoint.nil?
     return "assumed to match the heater setting" if pool.water_temp.nil?
@@ -34,6 +39,18 @@ module ApplicationHelper
       { time: Time.zone.parse(row["t"]), now: i.zero?, setpoint: row["setpoint"], cover_on: row["cover_on"],
         water: before["pool"], ideal: row["desired"] }
     }.first(limit)
+  end
+
+  # What the plan expects for a party: outside air, the target, and the water at the start.
+  # nil when the party is beyond the forecast (or there is no plan yet).
+  def party_outlook(party, recommendation)
+    rows = recommendation&.series.to_a.select { |r| r["pool"] }
+    during = rows.select { |r| (t = Time.zone.parse(r["t"])) >= party.starts_at && t < party.ends_at }
+    return if during.empty?
+
+    before = rows.reverse.find { |r| Time.zone.parse(r["t"]) < party.starts_at } || during.first
+    { air: during.sum { |r| r["air"].to_f } / during.size, target: during.first["desired"].to_f,
+      water: before["pool"].to_f }
   end
 
   # Deep link for a pending Telegram connection, or nil.

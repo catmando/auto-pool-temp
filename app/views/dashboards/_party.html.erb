@@ -1,0 +1,31 @@
+<section class="card" id="party">
+  <h2>Pool party</h2>
+  <p class="muted">Having people over? Pick a date and how much warmer you want the pool. The plan heats ahead so it's ready when the party starts.</p>
+  <% parties = pool.pool_parties.upcoming %>
+  <% if parties.any? %>
+    <ul class="parties">
+      <% parties.each do |party| %>
+        <% outlook = party_outlook(party, recommendation) %>
+        <li>
+          <strong><%= party.label %></strong> · +<%= party.boost %>°F
+          <% if outlook %>
+            <div>It'll be about <%= degrees(outlook[:air]) %> outside; your pool target is <strong><%= degrees(outlook[:target]) %></strong>,
+              and the water should be <%= degrees(outlook[:water]) %> when it starts.</div>
+          <% else %>
+            <div class="muted">Too far out to forecast yet. Planning starts when it's within the 16-day forecast.</div>
+          <% end %>
+          <%= button_to "Remove", pool_party_path(party), method: :delete, class: "link" %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+  <%= form_with url: pool_parties_path, class: "fields party-form" do |f| %>
+    <label>Date <%= f.date_field :date, required: true, min: Date.current %></label>
+    <label>From <%= f.time_field :start_time, value: PoolParty::DEFAULT_START %></label>
+    <label>Until <%= f.time_field :end_time %> <span class="hint">Blank means midnight.</span></label>
+    <label>How much warmer
+      <%= f.select :boost, PoolParty::BOOSTS.map { |b| [ "+#{b}°F", b ] }, selected: 5 %>
+    </label>
+    <div><%= f.submit "Plan a pool party", class: "button" %></div>
+  <% end %>
+</section>

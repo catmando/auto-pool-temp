@@ -19,7 +19,7 @@ RSpec.describe User do
   it "gets a pool with default settings when created" do
     pool = create(:user).pool
     expect(pool).to be_persisted
-    expect(pool).to have_attributes(hot_air_temp: 95, hot_pool_temp: 80, cold_air_temp: 35, cold_pool_temp: 102,
+    expect(pool).to have_attributes(hot_air_temp: 95, hot_pool_temp: 75, cold_air_temp: 35, cold_pool_temp: 98, comfort_adjustment: 0,
                                     heat_rate_per_hour: 2, cooling_factor: 1, has_cover: false, pump_on_1: "04:00", pump_off_1: "10:00", checks_per_day: 2,
                                     strategy: "search", notification_channel: "telegram",
                                     warm_day_threshold: 80, assumed_setpoint: nil)

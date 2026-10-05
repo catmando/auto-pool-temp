@@ -17,7 +17,7 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Location set to 14618, Town of Brighton, New York.")
     expect(page).to have_content("America/New_York")
 
-    fill_in "Heats up (°F per hour, pump on)", with: "1.5"
+    find_field("pool[comfort_adjustment]").set("3")
     click_button "Save settings"
     expect(page).to have_content("Connect Telegram to start getting alerts")
 
@@ -35,9 +35,9 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Set heater to")
 
     visit edit_pool_path
-    click_button "Save the live forecast now"
-    select ForecastSnapshot.last.label, from: "Plan with"
-    click_button "Use"
+    # Test mode lives in a collapsed section; submit its forms directly.
+    page.driver.submit :post, forecast_snapshots_path, source: "live"
+    page.driver.submit :patch, test_mode_path, snapshot_id: ForecastSnapshot.last.id
     expect(page).to have_content("Test mode on")
     expect(page).to have_content("No alerts are sent")
     click_button "Back to live"

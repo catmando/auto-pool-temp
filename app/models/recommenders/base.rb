@@ -6,7 +6,7 @@ module Recommenders
     def self.description = ""
 
     attr_reader :forecast, :curve, :heat_rate, :environment, :has_cover, :cover_on, :pump, :now, :next_check_at,
-                :check_times, :water_temp, :warm_threshold
+                :check_times, :water_temp, :warm_threshold, :parties, :current_setpoint
 
     # heat_rate: °F per hour the heater adds while the pump runs.
     # cooling_factor: scales the standard heat loss/gain to the air (PoolEnvironment).
@@ -16,9 +16,11 @@ module Recommenders
     # water_temp: best estimate of the actual water temperature now (nil if unknown).
     # warm_threshold: above this air temp a slightly cooler pool feels comfortable;
     #   below it, a slightly warmer one does.
+    # parties: PoolParty::Window list; during one the ideal uses the party boost.
+    # current_setpoint: what the heater is set to now, if known (planners prefer keeping it).
     def initialize(forecast:, curve:, heat_rate:, cooling_factor: 1, has_cover: false, cover_on: true,
                    pump: PumpSchedule.always_on, now: Time.current, next_check_at: nil,
-                   check_times: nil, water_temp: nil, warm_threshold: 80)
+                   check_times: nil, water_temp: nil, warm_threshold: 80, parties: [], current_setpoint: nil)
       @forecast = forecast
       @curve = curve
       @heat_rate = heat_rate.to_f
@@ -31,13 +33,16 @@ module Recommenders
       @next_check_at = @check_times.first || now + 12.hours
       @water_temp = water_temp&.to_f
       @warm_threshold = warm_threshold.to_f
+      @parties = parties
+      @current_setpoint = current_setpoint&.to_i
     end
 
     # Settings that come from the pool (everything but the forecast, time, and water).
     def self.pool_options(pool)
       { curve: TargetCurve.for(pool), heat_rate: pool.heat_rate_per_hour, cooling_factor: pool.cooling_factor,
         has_cover: pool.has_cover, cover_on: pool.cover_on?, pump: pool.pump_schedule,
-        warm_threshold: pool.warm_day_threshold }
+        warm_threshold: pool.warm_day_threshold, parties: pool.pool_parties.map(&:window),
+      current_setpoint: pool.assumed_setpoint }
     end
 
     def self.for_pool(pool, forecast:, now: Time.current, water_temp: pool.estimated_water_temp(now, air: forecast))
@@ -78,8 +83,13 @@ module Recommenders
       end
     end
 
+    def party_at(time) = parties.find { |p| p.cover?(time) }
+
+    # The ideal at +time+: the curve with the comfort adjustment, or the party boost during a party.
     def desired_at(time)
-      curve.pool_temp_for(smoothed.temp_at(time))
+      party = party_at(time)
+      air = smoothed.temp_at(time)
+      party ? curve.pool_temp_for(air, adjustment: party.boost) : curve.pool_temp_for(air)
     end
 
     def series(plan: nil)

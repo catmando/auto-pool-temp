@@ -101,3 +101,16 @@ select { width: 100%; }
 .chart .pump-band { fill: var(--pool); opacity: .07; }
 .chart .setpoint-marker { fill: var(--setpoint); stroke: var(--card); stroke-width: 1.5; }
 .legend .pump::before { background: var(--pool); opacity: .25; height: 10px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); padding: 0; }
+.range-labels { display: flex; justify-content: space-between; align-items: baseline; margin: .25rem 0; font-size: .9rem; color: var(--muted); }
+.range-labels strong { color: var(--ink); font-size: 1.1rem; }
+details.advanced summary { cursor: pointer; list-style: none; }
+details.advanced summary::-webkit-details-marker { display: none; }
+details.advanced summary h2 { display: inline; }
+details.advanced summary::before { content: "▸ "; color: var(--muted); }
+details.advanced[open] summary::before { content: "▾ "; }
+details.advanced h3 { margin-top: 1rem; }
+.parties { list-style: none; padding: 0; margin: .5rem 0 1rem; }
+.parties li { border-left: 3px solid var(--setpoint); padding: .4rem .75rem; margin-bottom: .6rem; }
+.chart .party-band { fill: var(--setpoint); opacity: .12; }
+.legend .party::before { background: var(--setpoint); opacity: .35; height: 10px; }

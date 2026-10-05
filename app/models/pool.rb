@@ -8,6 +8,7 @@ class Pool < ApplicationRecord
   # Test mode: plan against this saved forecast instead of the live one (no alerts).
   belongs_to :test_snapshot, class_name: "ForecastSnapshot", optional: true
   has_many :forecast_snapshots, dependent: :destroy
+  has_many :pool_parties, dependent: :destroy
   has_many :recommendations, dependent: :destroy
   has_many :text_messages, dependent: :nullify
 
@@ -28,6 +29,7 @@ class Pool < ApplicationRecord
   validate :second_pump_window_complete
   validates :checks_per_day, inclusion: { in: CHECK_HOURS.keys }
   validates :warm_day_threshold, numericality: { in: 40..110 }
+  validates :comfort_adjustment, numericality: { in: -10..10 } # integer column: "3.0" stores as 3
   validates :min_change, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
   validates :forecast_days, numericality: { only_integer: true, in: 1..16 }
   validates :strategy, inclusion: { in: ->(_) { Recommenders.keys } }

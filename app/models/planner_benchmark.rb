@@ -18,7 +18,7 @@ class PlannerBenchmark
 
   # The owner's settings as of 2026-10-05 (pump 4-10am and 4-10pm; heats 2°F/h; has a cover).
   def self.pool
-    Pool.new(hot_air_temp: 95, hot_pool_temp: 80, cold_air_temp: 35, cold_pool_temp: 102,
+    Pool.new(hot_air_temp: 95, hot_pool_temp: 75, cold_air_temp: 35, cold_pool_temp: 98, comfort_adjustment: 0,
              heat_rate_per_hour: 2, cooling_factor: 1, has_cover: true, cover_on: true,
              checks_per_day: 2, warm_day_threshold: 80,
              pump_on_1: "04:00", pump_off_1: "10:00", pump_on_2: "16:00", pump_off_2: "22:00",

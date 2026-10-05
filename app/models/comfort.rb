@@ -9,11 +9,19 @@ module Comfort
   LEEWAY = 2.0
   # How much a degree in the fine direction counts, compared to the other way.
   FINE_WEIGHT = 0.25
+  # During a pool party, being off counts this many times more (and warmer is the fine direction):
+  # the water has to be there when the party starts.
+  PARTY_WEIGHT = 20.0
 
   module_function
 
   # °F of discomfort: 0 only when exactly on the ideal.
-  def discomfort(pool:, ideal:, air:, warm_threshold:)
+  # party: nil, :party (during one), or :around (24h before / 48h after, while warming up
+  # for it or cooling off afterward, when extra warmth is expected and barely counts).
+  def discomfort(pool:, ideal:, air:, warm_threshold:, party: nil)
+    return PARTY_WEIGHT * discomfort(pool: pool, ideal: ideal, air: 0, warm_threshold: 1) if party == :party
+    return FINE_WEIGHT * (pool - ideal) if party == :around && pool > ideal
+
     off = pool - ideal
     fine_direction = air >= warm_threshold ? -1 : 1 # cooler is fine when warm, warmer when cool
     if off * fine_direction >= 0
@@ -26,7 +34,9 @@ module Comfort
 
   # Summary over hourly rows ({ pool:, desired:, smoothed_air: }).
   def score(rows, warm_threshold:)
-    values = rows.map { |r| discomfort(pool: r[:pool], ideal: r[:desired], air: r[:smoothed_air], warm_threshold: warm_threshold) }
+    values = rows.map do |r|
+      discomfort(pool: r[:pool], ideal: r[:desired], air: r[:smoothed_air], warm_threshold: warm_threshold, party: r[:party])
+    end
     offsets = rows.map { |r| r[:pool] - r[:desired] }
     errors = offsets.map(&:abs)
     {

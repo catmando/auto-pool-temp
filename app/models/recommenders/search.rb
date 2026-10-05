@@ -8,15 +8,17 @@ module Recommenders
     def self.description = "Tries schedules across the whole forecast and picks the most comfortable."
 
     GRID_STEP = 0.5
-    # Prefer keeping the current setting and cover unless a change is noticeably better (°F·hours).
-    KEEP_SETTING_SLACK = 0.5
+    # Keep the current setting and cover unless a change is noticeably better (°F·hours of
+    # discomfort saved). At 0.5 the plan flip-flopped (91, 92, 91, ...) about every check in
+    # steady weather because of the pump-off dips; 2.0 keeps it steady (2026-10-05).
+    KEEP_SETTING_SLACK = 2.0
 
     private
 
     def choose_decisions
       values = backward_values
       temp = start_temp
-      previous = Decision.new(start_temp.round, has_cover && cover_on)
+      previous = Decision.new(current_setpoint || start_temp.round, has_cover && cover_on)
       stages.map do |stage|
         decision = best_decision(stage, temp, values[stage.index + 1], previous)
         temp = run_stage(stage, temp, decision)
@@ -31,7 +33,7 @@ module Recommenders
     def setpoints
       @setpoints ||= begin
         temps = desired + [ start_temp ]
-        ((temps.min - 4).floor..(temps.max + 4).ceil).to_a
+        ((temps.min - 4).floor..[ (temps.max + 4).ceil, TargetCurve::MAX_POOL_TEMP.to_i ].min).to_a
       end
     end
 
@@ -57,17 +59,28 @@ module Recommenders
       values
     end
 
+    # Picks this check's decision. Every change is an alert, so changes have to
+    # earn their keep:
+    #   - the cover stays on unless taking it off is noticeably better (and goes
+    #     back on once off stops being noticeably better)
+    #   - the heater setting stays as it is unless a change is noticeably better
     def best_decision(stage, temp, following, previous)
       costs = actions.to_h { |decision| [ decision, stage_cost(stage, temp, decision, following) ] }
       best = costs.values.min
-      return previous if costs[previous] && costs[previous] <= best + KEEP_SETTING_SLACK
 
-      near_best = costs.select { |_, c| c <= best + 1e-6 }.keys
+      covered = costs.select { |d, _| d.cover_on }
+      if covered.any?
+        costs = covered.values.min <= best + KEEP_SETTING_SLACK ? covered : costs.reject { |d, _| d.cover_on }
+        best = costs.values.min
+      end
+
+      keep = previous.with(cover_on: costs.keys.first.cover_on)
+      return keep if costs[keep] && costs[keep] <= best + KEEP_SETTING_SLACK
+
       # Ties happen when the water can't reach any of them before the next check (every
-      # setting above the water heats at the same rate). Prefer leaving the cover as it
-      # is, then the setting nearest the coming day's ideal, so the instruction reads as
-      # where the pool is headed.
-      near_best.min_by { |d| [ d.cover_on == previous.cover_on ? 0 : 1, (d.setpoint - next_day_ideal(stage)).abs ] }
+      # setting above the water heats at the same rate). Pick the setting nearest the
+      # coming day's ideal, so the instruction reads as where the pool is headed.
+      costs.select { |_, c| c <= best + 1e-6 }.keys.min_by { |d| (d.setpoint - next_day_ideal(stage)).abs }
     end
 
     def next_day_ideal(stage)
@@ -79,7 +92,8 @@ module Recommenders
       cost = 0.0
       (stage.start...stage.stop).each do |i|
         temp = step(temp, decision, i)
-        cost += Comfort.discomfort(pool: temp, ideal: desired[i], air: day_air[i], warm_threshold: warm_threshold)
+        cost += Comfort.discomfort(pool: temp, ideal: desired[i], air: day_air[i], warm_threshold: warm_threshold,
+                                   party: party[i])
       end
       cost + interpolate(following, temp)
     end

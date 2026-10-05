@@ -57,6 +57,18 @@ module Recommenders
 
     def day_air = @day_air ||= hours.map { |t| smoothed.temp_at(t) }
 
+    PARTY_LEAD = 24.hours
+    PARTY_COOLDOWN = 48.hours
+
+    # Per hour: :party during one, :around just before/after one, nil otherwise.
+    def party
+      @party ||= hours.map do |t|
+        if party_at(t) then :party
+        elsif parties.any? { |p| t >= p.starts_at - PARTY_LEAD && t < p.ends_at + PARTY_COOLDOWN } then :around
+        end
+      end
+    end
+
     # Water temperature now: the estimate if we have one, otherwise assume it's at today's ideal.
     def start_temp = water_temp || desired.first
 
@@ -78,7 +90,8 @@ module Recommenders
         (stage.start...stage.stop).map do |i|
           temp = step(temp, decision, i)
           { t: hours[i], air: air[i].round(1), smoothed_air: day_air[i].round(1), desired: desired[i].round(1),
-            pool: temp.round(2), setpoint: decision.setpoint, cover_on: decision.cover_on, pump: pump_on[i].round(2) }
+            pool: temp.round(2), setpoint: decision.setpoint, cover_on: decision.cover_on, pump: pump_on[i].round(2),
+            party: party[i] }
         end
       end
     end
@@ -124,6 +137,11 @@ module Recommenders
         else "hold it at about #{water}°F"
         end
       action += cover_advice(decisions.first)
+
+      if (next_party = party.index(:party)) && next_party < 48 && setpoint > ideal_today + 1
+        return "Getting ready for your pool party at #{fmt_time(hours[next_party])} " \
+               "(target #{desired[next_party].round}°F), so #{action}."
+      end
 
       # Look up to 4 days ahead for the weather the setting is getting ready for.
       ahead = (24...[ 24 * 5, desired.size ].min).to_a

@@ -36,29 +36,22 @@
 <%= form_with model: pool, url: pool_path, method: :patch, class: "stack",
               data: { controller: "autosave", action: "change->autosave#save" } do |f| %>
   <section class="card">
-    <h2>Ideal pool temperature</h2>
-    <p class="muted">Two points define a straight line from the day's average air temperature to the ideal pool temperature. It keeps going past both points.</p>
-    <div class="fields pairs">
-      <label>Hot day: air (°F) <%= f.number_field :hot_air_temp, step: "any" %></label>
-      <label>Hot day: pool (°F) <%= f.number_field :hot_pool_temp, step: "any" %></label>
-      <label>Cold day: air (°F) <%= f.number_field :cold_air_temp, step: "any" %></label>
-      <label>Cold day: pool (°F) <%= f.number_field :cold_pool_temp, step: "any" %></label>
-    </div>
-    <% if pool.hot_air_temp != pool.cold_air_temp %>
-      <% curve = TargetCurve.for(pool) %>
-      <p class="muted">The pool changes <%= curve.slope.round(2) %>°F for every 1°F change in air. At 65°F air the pool should be <%= degrees(curve.pool_temp_for(65)) %>.</p>
-    <% end %>
-    <div class="fields">
-      <label>Warm-day threshold (°F)
-        <%= f.number_field :warm_day_threshold, step: "any" %>
-        <span class="hint">On days warmer than this, a pool a little cooler than ideal is fine; on cooler days, a little warmer is fine. The planner uses that when it can't hit the ideal exactly.</span>
+    <h2>How you like your pool</h2>
+    <div data-controller="range">
+      <label>Warmer or cooler than usual
+        <%= f.range_field :comfort_adjustment, in: -10..10, step: 1, list: "comfort-marks",
+                          data: { range_target: "input", action: "input->range#show" } %>
       </label>
+      <datalist id="comfort-marks"><option value="-10"></option><option value="0"></option><option value="10"></option></datalist>
+      <p class="range-labels"><span>Cooler</span>
+        <strong data-range-target="output"><%= comfort_label(pool.comfort_adjustment) %></strong><span>Warmer</span></p>
     </div>
+    <p class="hint">Degrees added to (or taken off) the pool temperature the app aims for, which already follows the weather: warmer on cool days, cooler on hot ones. It never goes above <%= TargetCurve::MAX_POOL_TEMP.to_i %>°F.</p>
   </section>
 
   <section class="card">
-    <h2>Pump and heater</h2>
-    <p class="muted">The heater only runs while the pump runs. The water always gains or loses heat to the air: it cools faster when the air is colder, and warms when the air is warmer than the water.</p>
+    <h2>Pump and cover</h2>
+    <p class="muted">The heater only runs while the pump runs.</p>
     <div class="fields pairs">
       <label>Pump on <%= f.time_field :pump_on_1 %></label>
       <label>Pump off <%= f.time_field :pump_off_1 %></label>
@@ -66,12 +59,9 @@
       <label>Pump off again (optional) <%= f.time_field :pump_off_2 %></label>
     </div>
     <div class="fields">
-      <label>Heats up (°F per hour, pump on) <%= f.number_field :heat_rate_per_hour, step: "any", min: 0.01 %></label>
-      <label>Cooling factor <%= f.number_field :cooling_factor, step: "any", min: 0.1 %>
-        <span class="hint">1 is standard: covered, a 100°F pool loses about 3°F/day at 35°F air. Uncovered it loses about 6°F/day at 35°F air and 2°F/day at 90°F. Raise it if your pool cools faster than that, lower it if slower.</span>
-      </label>
       <label class="check"><%= f.check_box :has_cover %> I have a pool cover</label>
     </div>
+    <p class="hint">With a cover, the app will tell you when to take it off so the pool cools faster, and when to put it back.</p>
   </section>
 
   <section class="card">
@@ -81,14 +71,48 @@
       <label>Check and adjust
         <%= f.select :checks_per_day, Pool::CHECK_HOURS.map { |n, hours| ["#{n}× a day (#{hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.join(', ')})", n] } %>
       </label>
+      <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
+    </div>
+  </section>
+
+  <details class="card advanced" id="advanced">
+    <summary><h2>Advanced</h2></summary>
+    <h3>Ideal pool temperature</h3>
+    <p class="muted">Two points define a straight line from the day's average air temperature to the ideal pool temperature (before your warmer/cooler setting). It keeps going past both points.</p>
+    <div class="fields pairs">
+      <label>Hot day: air (°F) <%= f.number_field :hot_air_temp, step: "any" %></label>
+      <label>Hot day: pool (°F) <%= f.number_field :hot_pool_temp, step: "any" %></label>
+      <label>Cold day: air (°F) <%= f.number_field :cold_air_temp, step: "any" %></label>
+      <label>Cold day: pool (°F) <%= f.number_field :cold_pool_temp, step: "any" %></label>
+    </div>
+    <% if pool.hot_air_temp != pool.cold_air_temp %>
+      <% curve = TargetCurve.for(pool) %>
+      <p class="muted">The pool changes <%= curve.slope.round(2) %>°F for every 1°F change in air. At 65°F air the pool should be <%= degrees(curve.pool_temp_for(65)) %> (with your warmer/cooler setting).</p>
+    <% end %>
+    <div class="fields">
+      <label>Warm-day threshold (°F)
+        <%= f.number_field :warm_day_threshold, step: "any" %>
+        <span class="hint">On days warmer than this, a pool a little cooler than ideal is fine; on cooler days, a little warmer is fine. The planner uses that when it can't hit the ideal exactly.</span>
+      </label>
+    </div>
+
+    <h3>Heating and cooling</h3>
+    <div class="fields">
+      <label>Heats up (°F per hour, pump on) <%= f.number_field :heat_rate_per_hour, step: "any", min: 0.01 %></label>
+      <label>Cooling factor <%= f.number_field :cooling_factor, step: "any", min: 0.1 %>
+        <span class="hint">1 is standard: covered, a 100°F pool loses about 3°F/day at 35°F air. Uncovered it loses about 6°F/day at 35°F air and 2°F/day at 90°F. Raise it if your pool cools faster than that, lower it if slower.</span>
+      </label>
+    </div>
+
+    <h3>Planning</h3>
+    <div class="fields">
       <label>Only alert when the change is at least (°F) <%= f.number_field :min_change, min: 1 %></label>
       <label>Planner
         <%= f.select :strategy, Recommenders.registry.map { |key, klass| [klass.label, key] } %>
         <span class="hint"><%= Recommenders.registry.values.map { |k| "#{k.label}: #{k.description}" }.join(" ") %> Compare them in the <%= link_to "Lab", lab_path %>.</span>
       </label>
-      <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
     </div>
-  </section>
+  </details>
 
   <div class="inline save-bar">
     <%= f.submit "Save settings", class: "button" %>
@@ -96,8 +120,8 @@
   </div>
 <% end %>
 
-<section class="card" id="test-mode">
-  <h2>Test mode</h2>
+<details class="card advanced" id="test-mode">
+  <summary><h2>Test mode</h2></summary>
   <p class="muted">Plan against a saved forecast so results don't change while you compare settings and planners. "Now" stays at the moment the forecast was saved, and no alerts are sent.</p>
   <% snapshots = pool.forecast_snapshots.recent %>
   <%= form_with url: test_mode_path, method: :patch, class: "inline" do |f| %>
@@ -119,4 +143,4 @@
       <% end %>
     </ul>
   <% end %>
-</section>
+</details>

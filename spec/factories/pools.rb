@@ -11,6 +11,9 @@ FactoryBot.define do
     latitude { 30.27 }
     longitude { -97.74 }
     time_zone { "America/Chicago" }
+    # A fixed curve (95->80, 35->102: 91°F ideal at 65°F air) so specs don't depend on the app defaults.
+    hot_pool_temp { 80 }
+    cold_pool_temp { 102 }
     phone_number { "+15125550100" }
     phone_verified_at { Time.current }
     # SMS stays supported in the backend; most specs exercise it. See :telegram.

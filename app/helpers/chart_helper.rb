@@ -51,6 +51,8 @@ module ChartHelper
     end
 
     parts.concat(pump_bands(rows, times, x, pad_t, plot_h)) if rows.first.key?("pump")
+    parties = party_bands(rows, times, x, pad_t, plot_h)
+    parts.concat(parties)
 
     if rows.first.key?(AIR_SERIES[:key])
       points = rows.each_with_index.map { |r, i| "#{x.(times[i]).round(1)},#{y_air.(r[AIR_SERIES[:key]].to_f).round(1)}" }
@@ -69,6 +71,7 @@ module ChartHelper
     shown = POOL_SERIES.select { |s| pool_keys.include?(s[:key]) }
     shown += [ AIR_SERIES ] if rows.first.key?(AIR_SERIES[:key])
     shown += [ { label: "Pump on", css: "pump" } ] if rows.first.key?("pump")
+    shown += [ { label: "Pool party", css: "party" } ] if parties.any?
     legend = tag.div(class: "legend") { safe_join(shown.map { |s| tag.span(s[:label], class: "key #{s[:css]}") }) }
     tag.div(svg + legend, class: "chart-wrap")
   end
@@ -89,6 +92,16 @@ module ChartHelper
       next unless r["pump"].to_f.positive?
 
       tag.rect(x: x.(times[i]).round(1), y: top, width: (width * r["pump"].to_f).round(2), height: height, class: "pump-band")
+    end
+  end
+
+  # Bands behind pool-party hours.
+  def party_bands(rows, times, x, top, height)
+    width = times.size > 1 ? x.(times[1]) - x.(times[0]) : 0
+    rows.each_with_index.filter_map do |r, i|
+      next unless r["party"].to_s == "party"
+
+      tag.rect(x: x.(times[i]).round(1), y: top, width: width.round(2), height: height, class: "party-band")
     end
   end
 
