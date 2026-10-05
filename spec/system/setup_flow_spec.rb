@@ -44,7 +44,7 @@ RSpec.describe "Setting up the app" do
     expect(page).to have_content("Test mode off")
 
     click_link "Dashboard"
-    fill_in "Measured", with: "86"
+    fill_in "Actual", with: "86"
     click_button "Log it"
     expect(page).to have_content("Logged the water at 86°F")
 

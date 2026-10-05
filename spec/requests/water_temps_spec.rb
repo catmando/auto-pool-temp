@@ -11,7 +11,7 @@ RSpec.describe "Reporting the water temperature" do
     expect(flash[:notice]).to eq("Logged the water at 86.5°F (expected about 90°F).")
     expect(pool.reload.water_temp).to be_nil
     follow_redirect!
-    expect(response.body).to include("Last reading 87°F")
+    expect(response.body).to include("Last reading 87°F", "Logging actual temps helps improve the algorithm's accuracy.")
   end
 
   it "rejects nonsense" do

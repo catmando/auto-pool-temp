@@ -173,7 +173,9 @@ Single user for now; sign-up closes after the first account.
   `Turbo::StreamsChannel.broadcast_refresh_to(pool)`; `PoolCheckJob` does the same after a scheduled check.
   The dashboard subscribes (`turbo_stream_from pool`) and refreshes by morphing in place. Production uses Solid
   Cable; Action Cable only accepts signed-in users.
-- **Advanced → "Send test message"** sends a test alert to the connected chat (`TestMessagesController`).
+- **Advanced → "Send test message"** sends the real alert the current plan would send now (`TestMessagesController`),
+  without changing the assumed heater/cover/pump state. The water card's field is "Actual" with a note that logging
+  actual temps improves accuracy.
 - Water temperature (estimate): `pool.estimated_water_temp(time)` advances the last known value (reported with
   "water 86" by reply or on the dashboard, or banked by `record_setpoint!`) toward the heater setting.
   With nothing known, it's assumed to match the setting.
