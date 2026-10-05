@@ -118,3 +118,7 @@ details.advanced h3 { margin-top: 1rem; }
 .party-block.saved { border-left-color: var(--setpoint); }
 .party-outlook p { margin: .35rem 0; }
 .party-when { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.party-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem 1rem; align-items: end; }
+@media (max-width: 560px) { .party-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.party-action .button { width: 100%; }
+.button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }

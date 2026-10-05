@@ -93,11 +93,14 @@ module Recommenders
 
     def party_at(time) = parties.find { |p| p.cover?(time) }
 
-    # The ideal at +time+: the curve with the comfort adjustment, or the party boost during a party.
+    # The ideal at +time+: the curve with the comfort adjustment, plus the party boost during a
+    # party (the total stays within TargetCurve::MAX_ADJUSTMENT of neutral).
     def desired_at(time)
       party = party_at(time)
       air = smoothed.temp_at(time)
-      party ? curve.pool_temp_for(air, adjustment: party.boost) : curve.pool_temp_for(air)
+      return curve.pool_temp_for(air) unless party
+
+      curve.pool_temp_for(air, adjustment: [ curve.adjustment + party.boost, TargetCurve::MAX_ADJUSTMENT ].min)
     end
 
     def series(plan: nil)

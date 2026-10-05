@@ -12,7 +12,7 @@ RSpec.describe "Pool parties" do
   it "shows the party section above the plan, with a blank block" do
     get root_path
     expect(response.body.index('id="party"')).to be < response.body.index("<h2>Plan</h2>")
-    expect(response.body).to include("Plan the party", "Until (date)", "Until (time)", 'data-controller="parties"')
+    expect(response.body).to include("Plan the party", "Until", "Until (time)", 'data-controller="parties"')
   end
 
   # The owner's bug (2026-10-05): a planned party has to change the plan the dashboard shows.
@@ -25,7 +25,7 @@ RSpec.describe "Pool parties" do
     rows = plan_rows
     party_rows = rows.select { |r| r["party"] == "party" }
     expect(party_rows.size).to eq(12) # noon to 11:59 PM
-    # Steady 65°F air: the spec curve's ideal is 91°F; the +6 boost replaces the comfort setting.
+    # Steady 65°F air: the spec curve's ideal is 91°F; the +6 boost is added to it.
     expect(party_rows.first["desired"]).to be_within(0.2).of(97)
     expect(rows.reject { |r| r["party"] }.map { |r| r["desired"] }.uniq).to eq([ 91.0 ])
   end
@@ -39,11 +39,28 @@ RSpec.describe "Pool parties" do
     expect(response.body).to include("Your pool target is", "when the party starts")
   end
 
-  it "says when a party is no warmer than usual" do
-    pool.update!(comfort_adjustment: 5)
-    post pool_parties_path, params: { start_date: party_day.iso8601, boost: 5 }
+  it "adds the boost to the comfort setting, up to +10 above neutral in total" do
+    pool.update!(comfort_adjustment: 3)
+    post pool_parties_path, params: { start_date: party_day.iso8601, boost: 7 }
     get root_path
-    expect(response.body).to include("no warmer than usual")
+    expect(plan_rows.find { |r| r["party"] == "party" }["desired"]).to be_within(0.2).of(91 + 10)
+    expect(plan_rows.reject { |r| r["party"] }.map { |r| r["desired"] }.uniq).to eq([ 94.0 ])
+    expect(response.body).to include("+7°F on top of your usual setting")
+  end
+
+  it "offers boosts from +1 up to the +10 total, and refuses more" do
+    pool.update!(comfort_adjustment: 5)
+    get root_path
+    expect(response.body).to include("+5°F</option>")
+    expect(response.body).not_to include("+6°F</option>")
+    post pool_parties_path, params: { start_date: party_day.iso8601, boost: 6 }
+    expect(flash[:alert]).to include("must be from +1 to +5")
+  end
+
+  it "explains that no party can go warmer when the comfort setting is already +10" do
+    pool.update!(comfort_adjustment: 10)
+    get root_path
+    expect(response.body).to include("the warmest a party can go")
   end
 
   it "updates a party, and deletes it" do

@@ -36,10 +36,10 @@ module Recommenders
       @boost_actions ||= setpoints.map { |sp| Decision.new(setpoint: sp, cover_on: has_cover, pump_extra: true) }
     end
 
-    # Starting to run the pump around the clock needs a big shortfall; once it is
-    # running, it may continue (until normal hours are noticeably better again).
-    def actions_for(stage, temp, already_extended: false)
-      already_extended || boost_needed?(stage, temp) ? actions + boost_actions : actions
+    # Running the pump around the clock is only on the table while it's needed (see
+    # boost_needed?): the owner's rule is "only when more than the threshold short".
+    def actions_for(stage, temp)
+      boost_needed?(stage, temp) ? actions + boost_actions : actions
     end
 
     def setpoints
@@ -77,8 +77,7 @@ module Recommenders
     #     back on once off stops being noticeably better)
     #   - the heater setting stays as it is unless a change is noticeably better
     def best_decision(stage, temp, following, previous)
-      costs = actions_for(stage, temp, already_extended: previous.pump_extra)
-              .to_h { |decision| [ decision, stage_cost(stage, temp, decision, following) ] }
+      costs = actions_for(stage, temp).to_h { |decision| [ decision, stage_cost(stage, temp, decision, following) ] }
       best = costs.values.min
 
       # The pump stays on its normal schedule unless running it around the clock is

@@ -5,6 +5,8 @@
 class TargetCurve
   # Hotter than this isn't safe to soak in.
   MAX_POOL_TEMP = 104.0
+  # The warmer/cooler setting (plus any party boost) stays within this many °F of neutral.
+  MAX_ADJUSTMENT = 10
 
   attr_reader :hot_air, :hot_pool, :cold_air, :cold_pool, :adjustment
 

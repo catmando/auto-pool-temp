@@ -26,7 +26,8 @@ RSpec.describe "Planning a pool party", js: true do
     within("#party") do
       expect(page).to have_css(".party-block.saved", count: 1)
       expect(page).to have_content("Your pool target is")
-      expect(page).to have_button("Delete")
+      expect(page).to have_css("button.danger", text: "Delete")
+      expect(page).to have_no_button("Plan the party", count: 2)
       expect(page).to have_css(".party-block:not(.saved)", count: 1) # the new blank block
     end
   end
@@ -38,14 +39,22 @@ RSpec.describe "Planning a pool party", js: true do
     expect(saved).to have_no_button("Plan the party")
     saved.select "+9°F", from: "How much warmer"
     expect(saved).to have_button("Plan the party")
-    expect(saved).to have_no_button("Delete")
+    expect(saved).to have_no_css("button.danger", text: "Delete")
     expect(page).to have_no_css("[data-parties-target=blank] .party-block", visible: true)
     saved.click_button "Plan the party"
     expect(page).to have_content("Pool party planned for")
     expect(pool.pool_parties.first.reload.boost).to eq(9)
   end
 
-  it "lists parties in date order" do
+it "deletes a planned party with the red Delete button" do
+  pool.pool_parties.build.assign_from_form(start_date: day.iso8601, boost: 5).save!
+  visit root_path
+  find(".party-block.saved").click_button "Delete"
+  expect(page).to have_content("Pool party removed.")
+  expect(pool.pool_parties.reload).to be_empty
+end
+
+it "lists parties in date order" do
     pool.pool_parties.build.assign_from_form(start_date: (day + 5).iso8601, boost: 2).save!
     pool.pool_parties.build.assign_from_form(start_date: day.iso8601, boost: 3).save!
     visit root_path

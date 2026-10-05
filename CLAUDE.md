@@ -18,19 +18,23 @@ Single user for now; sign-up closes after the first account.
   (`pool.comfort_adjustment`). Advanced (collapsed): curve anchors, warm-day threshold, heat rate,
   cooling factor, min change, planner. Test mode is collapsed too.
 - **Pool party mode** (`PoolParty`): start date/time and end date/time (defaults noon until 11:59 PM the same
-  day; multi-day allowed) and a 0..+10 boost that
-  *replaces* the comfort adjustment during the window. The water must be on target **when the party starts**:
+  day; multi-day allowed) and a boost **added to** the comfort setting during the window, from +1 up to +10 above
+  neutral in total (`PoolParty.boost_range`: comfort +5 -> +1..+5, comfort -7 -> +1..+17; none at +10).
+  (Until 2026-10-05 it replaced the comfort setting; the owner changed that.) The water must be on target **when the party starts**:
   `Comfort` weights party hours 20x, and in the 24h before and 48h after, extra warmth barely counts
   (`:around`), so the planner pre-heats and cools off afterward freely. The dashboard shows each party's
-  outlook (outside air, party target vs usual target, water at start) from the current plan; it warns when a
-  party is no warmer than usual (the boost replaces, not adds to, the comfort setting). UI: the party section
-  sits above the plan; each party is its own editable block ("Plan the party"), saved ones show the outlook
-  and Delete, editing one hides those until re-saved, and a blank block sits at the end.
+  outlook (outside air, party target vs usual target, water at start) from the current plan. UI: the party
+  section sits above the plan; each party block has Date/From/How much warmer, then Until date/time below with
+  "Plan the party" (or a red Delete once planned) under How much warmer; editing a planned party swaps Delete
+  back to "Plan the party" and hides its outlook; a blank block sits at the end.
+  Owner-approved test case: `spec/fixtures/party/rochester_2026_10_05_party.json` +
+  `spec/models/recommenders/party_case_spec.rb` (comfort +5, party +5 reproduces approved plan #31 hour by hour).
 - **Run the pump around the clock** (`Decision#pump_extra`, `pool.pump_extended`): offered only when the normal
   pump hours can't keep up with the weather or a party, i.e. heating flat out from the ideal on the normal
   schedule would leave the water more than `pump_boost_threshold` (default 3°F, Advanced) short within the
   stage or the next day, or the water is already that far short now. The gate deliberately ignores the
-  water's temperature otherwise (a water-dependent gate taught the planner to run cool to unlock it).
+  water's temperature otherwise (a water-dependent gate taught the planner to run cool to unlock it). The
+  threshold is when to recommend it, not a guarantee; once the weather no longer calls for it, back to normal.
   Alerts say to run it around the clock / go back to the normal schedule; dashboard button; replies
   "pump on" / "pump normal".
 - Heater rate **°F per hour** (the owner's: 2). Heat loss/gain to the air follows the owner's standard model
@@ -61,7 +65,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 441 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 460 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration

@@ -1,10 +1,10 @@
-# Pool party mode: for a time window, aim warmer than usual. The boost
-# (0..+10 °F) replaces the pool's comfort adjustment during the window, and the
-# planner works to have the water there when the party *starts*.
+# Pool party mode: for a time window, aim warmer than usual. The boost is added
+# to the pool's comfort setting, from +1 up to whatever brings the total to +10
+# above neutral (TargetCurve::MAX_ADJUSTMENT); the planner works to have the
+# water there when the party *starts*.
 class PoolParty < ApplicationRecord
   DEFAULT_START_TIME = "12:00"
   DEFAULT_END_TIME = "23:59"
-  BOOSTS = (0..10)
 
   # A window the planners use: Window.new(starts_at, ends_at, boost).
   Window = Data.define(:starts_at, :ends_at, :boost) do
@@ -14,7 +14,7 @@ class PoolParty < ApplicationRecord
   belongs_to :pool, touch: true # a new, changed, or removed party re-plans
 
   validates :starts_at, :ends_at, presence: true
-  validates :boost, inclusion: { in: BOOSTS }
+  validate :boost_in_range
   validate :ends_after_start
 
   default_scope { order(:starts_at) }
@@ -34,6 +34,10 @@ class PoolParty < ApplicationRecord
     errors.add(:base, "Pick a date for the party")
     self
   end
+
+  # Boosts allowed for +pool+: +1 up to +10 above neutral in total (empty if the
+  # comfort setting is already +10).
+  def self.boost_range(pool) = 1..[ TargetCurve::MAX_ADJUSTMENT - pool.comfort_adjustment.to_i, 0 ].max
 
   def self.at(zone, day, hhmm)
     minutes = PumpSchedule.minutes(hhmm) or raise ArgumentError, "bad time #{hhmm.inspect}"
@@ -58,6 +62,13 @@ class PoolParty < ApplicationRecord
   private
 
   def fmt_time(time) = time.strftime("%-l:%M%P").sub(":00", "")
+
+  def boost_in_range
+    range = self.class.boost_range(pool)
+    return if range.cover?(boost.to_i)
+
+    errors.add(:boost, range.none? ? "can't go higher: your warmer/cooler setting is already at +#{TargetCurve::MAX_ADJUSTMENT}" : "must be from +#{range.min} to +#{range.max}")
+  end
 
   def ends_after_start
     errors.add(:ends_at, "must be after the start") if starts_at && ends_at && ends_at <= starts_at

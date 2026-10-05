@@ -1,37 +1,43 @@
-<%# One party: an editable form. Saved parties show what will happen and a Delete
-    button; editing one swaps that for "Plan the party" until it's saved again. %>
+<%# One party: an editable form. "Until" sits under the start; the button under
+    "How much warmer" is "Plan the party", or a red Delete once it's planned.
+    Editing a planned party swaps Delete back to "Plan the party" until it's saved. %>
 <% saved = party.persisted? %>
+<% boosts = PoolParty.boost_range(pool) %>
 <div class="party-block <%= 'saved' if saved %>" data-controller="party" data-party-saved-value="<%= saved %>">
-  <%= form_with url: saved ? pool_party_path(party) : pool_parties_path, method: saved ? :patch : :post, class: "stack",
-                data: { action: "input->party#edited change->party#edited" } do |f| %>
-    <div class="fields party-when">
-      <label>Date <%= f.date_field :start_date, value: party.start_date, required: true, min: (saved ? nil : Date.current),
-                                    data: { party_target: "startDate", action: "change->party#startDateChanged" } %></label>
-      <label>From <%= f.time_field :start_time, value: party.start_time %></label>
-      <label>How much warmer
-        <%= f.select :boost, PoolParty::BOOSTS.map { |b| [ "+#{b}°F", b ] }, selected: saved ? party.boost : 5 %>
-      </label>
-    </div>
-    <div class="fields party-when">
-      <label>Until (date) <%= f.date_field :end_date, value: party.end_date, data: { party_target: "endDate" } %></label>
-      <label>Until (time) <%= f.time_field :end_time, value: party.end_time %></label>
-    </div>
-    <div data-party-target="submit" <%= "hidden" if saved %>><%= f.submit "Plan the party", class: "button" %></div>
-  <% end %>
-  <% if saved %>
-    <div class="party-outlook" data-party-target="outlook">
-      <% outlook = party_outlook(party, recommendation) %>
-      <p><strong><%= party.label %></strong> · +<%= party.boost %>°F</p>
-      <% if outlook %>
-        <p>It'll be about <%= degrees(outlook[:air]) %> outside. Your pool target is <strong><%= degrees(outlook[:target]) %></strong>
-          (usually <%= degrees(outlook[:usual]) %>), and the water should be <%= degrees(outlook[:water]) %> when the party starts.</p>
-        <% if outlook[:target].round <= outlook[:usual].round %>
-          <p class="hint">That's no warmer than usual: the party boost replaces your everyday warmer/cooler setting (+<%= pool.comfort_adjustment %>°F). Raise "How much warmer" to make it warmer.</p>
+  <% if boosts.none? && !saved %>
+    <p class="muted">Your warmer/cooler setting is already at +<%= TargetCurve::MAX_ADJUSTMENT %>°F, the warmest a party can go.</p>
+  <% else %>
+    <%= form_with url: saved ? pool_party_path(party) : pool_parties_path, method: saved ? :patch : :post,
+                  data: { action: "input->party#edited change->party#edited" } do |f| %>
+      <div class="party-grid">
+        <label>Date <%= f.date_field :start_date, value: party.start_date, required: true, min: (saved ? nil : Date.current),
+                                      data: { party_target: "startDate", action: "change->party#startDateChanged" } %></label>
+        <label>From <%= f.time_field :start_time, value: party.start_time %></label>
+        <label>How much warmer
+          <%= f.select :boost, boosts.map { |b| [ "+#{b}°F", b ] }, selected: saved ? party.boost : [ 5, boosts.max ].min %>
+        </label>
+        <label>Until <%= f.date_field :end_date, value: party.end_date, data: { party_target: "endDate" } %></label>
+        <label>&nbsp;<%= f.time_field :end_time, value: party.end_time, "aria-label": "Until (time)" %></label>
+        <div class="party-action">
+          <%= f.submit "Plan the party", class: "button", hidden: saved, data: { party_target: "submit" } %>
+          <% if saved %>
+            <button type="submit" form="delete-party-<%= party.id %>" class="button danger" data-party-target="delete">Delete</button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    <% if saved %>
+      <%= form_with url: pool_party_path(party), method: :delete, id: "delete-party-#{party.id}", html: { hidden: true } do %><% end %>
+      <div class="party-outlook" data-party-target="outlook">
+        <% outlook = party_outlook(party, recommendation) %>
+        <p><strong><%= party.label %></strong> · +<%= party.boost %>°F on top of your usual setting</p>
+        <% if outlook %>
+          <p>It'll be about <%= degrees(outlook[:air]) %> outside. Your pool target is <strong><%= degrees(outlook[:target]) %></strong>
+            (usually <%= degrees(outlook[:usual]) %>), and the water should be <%= degrees(outlook[:water]) %> when the party starts.</p>
+        <% else %>
+          <p class="muted">Too far out to forecast yet. Planning starts when it's within the 16-day forecast.</p>
         <% end %>
-      <% else %>
-        <p class="muted">Too far out to forecast yet. Planning starts when it's within the 16-day forecast.</p>
-      <% end %>
-      <%= button_to "Delete", pool_party_path(party), method: :delete, class: "button secondary" %>
-    </div>
+      </div>
+    <% end %>
   <% end %>
 </div>

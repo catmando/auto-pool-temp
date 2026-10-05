@@ -207,11 +207,27 @@ RSpec.describe PoolCheck, "pump advice" do
     expect(pool.reload.pump_extended).to be true
   end
 
-  it "tells you to go back to the normal schedule when it's no longer needed" do
+  # A pool whose normal pump hours keep up fine (2°F/h, 4-10am and 4-10pm), checked
+  # at several times of day: running around the clock is no longer needed.
+  (0..23).step(4).each do |hour|
+    it "tells you to go back to the normal schedule when it's no longer needed (check at #{hour}:15)" do
+      capable = create(:pool, heat_rate_per_hour: 2, pump_extended: true, assumed_setpoint: 91)
+      zone = capable.zone
+      travel_to(zone.local(2026, 10, 5, hour, 15)) do
+        capable.record_water_temp!(91)
+        described_class.call(capable, weather: FakeWeather.new(forecast: flat_forecast(65)))
+        expect(Sms.sender.last_body).to include("put the pump back on its normal schedule")
+        expect(capable.reload.pump_extended).to be false
+      end
+    end
+  end
+
+  it "keeps it running for a pool that can't keep up on its normal hours" do
     pool.update!(pump_extended: true, assumed_setpoint: 91)
-    pool.record_water_temp!(91)
-    described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
-    expect(Sms.sender.last_body).to include("put the pump back on its normal schedule")
-    expect(pool.reload.pump_extended).to be false
+    travel_to(pool.zone.local(2026, 10, 5, 13, 15)) do
+      pool.record_water_temp!(91)
+      described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
+      expect(pool.reload.pump_extended).to be true
+    end
   end
 end

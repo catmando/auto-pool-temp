@@ -21,10 +21,15 @@ RSpec.describe Recommenders::Search, "running the pump around the clock" do
 
   def extra_flags(result) = result.details[:schedule].map { |s| s[:pump_extra] }
 
-  it "runs the pump around the clock when the normal hours can't keep up, and keeps the shortfall within the threshold" do
+  # The threshold is when to recommend it (the owner's rule), not a guarantee: once the
+  # weather alone no longer calls for it, the pump goes back to normal hours.
+  it "runs the pump around the clock when the normal hours can't keep up, cutting the shortfall" do
+    worst = ->(result) { result.details[:series].map { |r| r[:desired] - r[:pool] }.max }
     result = plan(slow_pool)
+    never = plan(slow_pool.dup.tap { |p| p.pump_boost_threshold = 20 })
     expect(extra_flags(result)).to include(true)
-    expect(result.details[:series].map { |r| r[:desired] - r[:pool] }.max).to be <= 3
+    expect(extra_flags(never)).to all(be false)
+    expect(worst.(result)).to be < worst.(never) - 3
   end
 
   it "runs it in one stretch, then goes back to normal (no switching back and forth)" do
