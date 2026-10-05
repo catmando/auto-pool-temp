@@ -14,7 +14,7 @@ RSpec.describe PoolLog do
   end
 
   it "logs a confirmation and treats the setting as made at that moment" do
-    at = 2.hours.from_now
+    at = 2.hours.from_now.change(usec: 0) # the database keeps microseconds; Linux clocks have nanoseconds
     log = described_class.confirm_setting!(pool, water_temp: 88, source: "telegram", at: at)
     expect(log).to have_attributes(kind: "setting_confirmed", setpoint: 90, water_temp: 88, logged_at: at)
     expect(pool.reload).to have_attributes(setpoint_source: "confirmed", setpoint_updated_at: at)
