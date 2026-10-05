@@ -27,5 +27,8 @@ Rails.application.routes.draw do
 
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # App manifest: name and icons for "Add to Home screen" (Android uses it for the icon).
+  get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
+
   root "dashboards#show"
 end
