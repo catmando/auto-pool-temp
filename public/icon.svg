@@ -1,3 +1,13 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="256" cy="256" r="256" fill="red"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Auto Pool Temp</title>
+  <!-- Pool: rounded blue tile with water waves -->
+  <rect width="64" height="64" rx="14" fill="#0b7fab"/>
+  <path d="M8 34c4.7 0 4.7-3.5 9.3-3.5s4.7 3.5 9.4 3.5 4.6-3.5 9.3-3.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M8 45c4.7 0 4.7-3.5 9.3-3.5s4.7 3.5 9.4 3.5 4.6-3.5 9.3-3.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M8 56c4.7 0 4.7-3.5 9.3-3.5s4.7 3.5 9.4 3.5 4.6-3.5 9.3-3.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".6"/>
+  <!-- Thermometer -->
+  <rect x="44" y="8" width="11" height="34" rx="5.5" fill="#fff"/>
+  <circle cx="49.5" cy="46" r="9" fill="#fff"/>
+  <rect x="47" y="18" width="5" height="26" rx="2.5" fill="#e4572e"/>
+  <circle cx="49.5" cy="46" r="6" fill="#e4572e"/>
 </svg>
