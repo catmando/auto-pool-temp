@@ -11,8 +11,19 @@ RSpec.describe "Planning a pool party", js: true do
   end
 
   def set_date(field, date) = page.execute_script(
-    "const f = document.querySelector('#{field}'); f.value = '#{date.iso8601}'; f.dispatchEvent(new Event('change', { bubbles: true }))"
+    "const f = document.querySelector('#{field}'); f.value = '#{date.respond_to?(:iso8601) ? date.iso8601 : date}'; f.dispatchEvent(new Event('change', { bubbles: true }))"
   )
+
+  it "greys out Plan the party until a date is picked" do
+    visit root_path
+    within("#party") do
+      expect(page).to have_button("Plan the party", disabled: true)
+      set_date("[data-party-target=startDate]", day)
+      expect(page).to have_button("Plan the party", disabled: false)
+      set_date("[data-party-target=startDate]", "")
+      expect(page).to have_button("Plan the party", disabled: true)
+    end
+  end
 
   it "fills the end date from the start date, then shows the outlook and a new blank block" do
     visit root_path

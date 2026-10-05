@@ -13,6 +13,7 @@ RSpec.describe "Pool parties" do
     get root_path
     expect(response.body.index('id="party"')).to be < response.body.index("<h2>Plan</h2>")
     expect(response.body).to include("Plan the party", "Until", "Until (time)", 'data-controller="parties"')
+    expect(response.body).to match(/<input[^>]*value="Plan the party"[^>]*disabled="disabled"/) # until a date is picked
   end
 
   # The owner's bug (2026-10-05): a planned party has to change the plan the dashboard shows.

@@ -19,7 +19,8 @@
         <label>Until <%= f.date_field :end_date, value: party.end_date, data: { party_target: "endDate" } %></label>
         <label>&nbsp;<%= f.time_field :end_time, value: party.end_time, "aria-label": "Until (time)" %></label>
         <div class="party-action">
-          <%= f.submit "Plan the party", class: "button", hidden: saved, data: { party_target: "submit" } %>
+          <%= f.submit "Plan the party", class: "button", hidden: saved, disabled: party.start_date.nil?,
+                       title: "Pick a date first", data: { party_target: "submit" } %>
           <% if saved %>
             <button type="submit" form="delete-party-<%= party.id %>" class="button danger" data-party-target="delete">Delete</button>
           <% end %>
