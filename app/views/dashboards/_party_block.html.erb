@@ -12,12 +12,12 @@
       <div class="party-grid">
         <label>Date <%= f.date_field :start_date, value: party.start_date, required: true, min: (saved ? nil : Date.current),
                                       data: { party_target: "startDate", action: "change->party#startDateChanged" } %></label>
-        <label>From <%= f.time_field :start_time, value: party.start_time %></label>
+        <label>From <%= f.time_field :start_time, value: party.start_time, data: { party_target: "startTime" } %></label>
         <label>How much warmer
           <%= f.select :boost, boosts.map { |b| [ "+#{b}°F", b ] }, selected: saved ? party.boost : [ 5, boosts.max ].min %>
         </label>
-        <label>Until <%= f.date_field :end_date, value: party.end_date, data: { party_target: "endDate" } %></label>
-        <label>&nbsp;<%= f.time_field :end_time, value: party.end_time, "aria-label": "Until (time)" %></label>
+        <label>Until <%= f.date_field :end_date, value: party.end_date, min: party.start_date, data: { party_target: "endDate" } %></label>
+        <label>&nbsp;<%= f.time_field :end_time, value: party.end_time, "aria-label": "Until (time)", data: { party_target: "endTime" } %></label>
         <div class="party-action">
           <%= f.submit "Plan the party", class: "button", hidden: saved, disabled: party.start_date.nil?,
                        title: "Pick a date first", data: { party_target: "submit" } %>
@@ -26,6 +26,7 @@
           <% end %>
         </div>
       </div>
+      <p class="error" data-party-target="error" hidden>The party has to end after it starts.</p>
     <% end %>
     <% if saved %>
       <%= form_with url: pool_party_path(party), method: :delete, id: "delete-party-#{party.id}", html: { hidden: true } do %><% end %>
