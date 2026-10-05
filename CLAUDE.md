@@ -65,7 +65,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 498 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified: 510 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -167,8 +167,13 @@ Single user for now; sign-up closes after the first account.
 - **Owner reports are logged, not used yet** (`PoolLog`): water readings (dashboard or "water 86" reply) and
   "done" confirmations after an alert ("done" / "done 86" / "ok" / "yes"), each with the model's expected
   water temp at that moment. A confirmation also re-records the heater setting as changed at that time.
-  Later: use these to tune each pool's model. Alerts end with "Reply DONE once it's set, and add the water
-  temperature if you have it."
+  Later: use these to tune each pool's model.
+- **Alert text** (2026-10-05, owner's format): optional "Warmer/Cooler weather coming." (`WeatherTrend`: a coming day's
+  average air within 4 days differs from today's by >5°F), "Your heater should be set to: N°F", a pump line only when
+  pump-around-the-clock is part of the advice, a cover line for pools with a cover ("Cover should be on when not in
+  use." / "Remove the cover for rapid cooling."), then "Respond with current pool temperature to improve system
+  accuracy." **Any reply with a number ("86") = done + water reading**; "done"/"ok" = done; "heater 84" = the heater's
+  actual setting; "water 86" = a reading only.
 - **Live dashboard:** `RefreshPlansJob` (hourly, minute 2) re-plans each pool and
   `Turbo::StreamsChannel.broadcast_refresh_to(pool)`; `PoolCheckJob` does the same after a scheduled check.
   The dashboard subscribes (`turbo_stream_from pool`) and refreshes by morphing in place. Production uses Solid

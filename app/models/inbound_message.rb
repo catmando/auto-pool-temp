@@ -1,19 +1,20 @@
-# Handles a message the user sends back, on any channel. Supported:
-#   "/start <token>"         -> (Telegram) link this chat to a pool
-#   "123456"                 -> (SMS) phone confirmation code
-#   "84" / "84F" / "set 84"  -> heater is actually at 84°F; re-check and advise
-#   "done" / "done 86"       -> I set it as the alert said (and the water is 86°F); logged
-#   "water 86" / "w 86"      -> the water itself is 86°F; logged with what the model expected
-#   "cover on" / "cover off" -> the pool cover is now on / off
-#   "pump on" / "pump normal" -> the pump is running around the clock / back on its schedule
-#   "status" / "?"           -> what the heater should be set to now
-#   "pause" / "resume"       -> turn alerts off / on (Twilio also handles STOP itself)
-#   anything else            -> help
+# Handles a message the user sends back, on any channel. A reply to an alert
+# means "done": the heater was set as advised, at the time of the reply.
+#   "/start <token>"           -> (Telegram) link this chat to a pool
+#   "123456"                   -> (SMS) phone confirmation code
+#   "86" / "86F" / "done 86"   -> done, and the water is 86°F now (logged)
+#   "done" / "ok" / "yes"      -> done (logged)
+#   "water 86"                 -> just a water reading (logged)
+#   "heater 84" / "set 84"     -> the heater is actually at 84°F; re-check and advise
+#   "cover on" / "cover off"   -> the pool cover is now on / off
+#   "pump on" / "pump normal"  -> the pump is running around the clock / back on its schedule
+#   "status" / "?"             -> what the heater should be set to now
+#   "pause" / "resume"         -> turn alerts off / on (Twilio also handles STOP itself)
+#   anything else              -> help
 # Replies go back on the same channel, to the sender.
 class InboundMessage
-  HELP = "Reply DONE once you've made the change (add the water temp if you have it, e.g. \"done 86\"), " \
-         "your heater's current setting (e.g. \"84\"), the water temperature (e.g. \"water 86\"), STATUS for the current recommendation, " \
-         "or PAUSE / RESUME to turn alerts off or on."
+  HELP = "Reply with the pool's current temperature (e.g. \"86\") once the heater is set, or DONE. " \
+         "Also: HEATER 84 if the heater is set differently, STATUS for the current advice, PAUSE / RESUME for alerts."
 
   def self.handle(**options) = new(**options).handle
 
@@ -82,11 +83,12 @@ class InboundMessage
     when /\Acover\s+(on|off)\z/, /\A(?:\/)?cover(on|off)\z/
       pool.record_cover!($1 == "on", at: @now)
       "Got it, the cover is #{$1}."
-    when /\A(?:done|ok|okay|yes|y|👍)[\s,.!]*(?:(?:water|pool|w)\s*(?:is|at|=|:)?\s*)?(\d{2,3}(?:\.\d+)?)?\s*°?\s*f?\z/
-      confirmed($1&.to_f, pool)
     when /\A(?:water|pool|w)\s*(?:is|at|=|:)?\s*(\d{2,3}(?:\.\d+)?)\s*°?\s*f?\z/
       water_reported($1.to_f, pool)
-    when /\A(?:set\s*(?:to)?\s*)?(\d{2,3})\s*°?\s*f?\z/
+    when /\A(?:(?:done|ok|okay|yes|y|👍)[\s,.!]*)?(?:(?:water|pool|w)\s*(?:is|at|=|:)?\s*)?(\d{2,3}(?:\.\d+)?)\s*°?\s*f?\z/,
+         /\A(?:done|ok|okay|yes|y|👍)[\s,.!]*\z/
+      confirmed($1&.to_f, pool)
+    when /\A(?:heater|set)\s*(?:is|at|to|=|:)?\s*(\d{2,3})\s*°?\s*f?\z/
       reported($1.to_i, pool)
     when "status", "?", "/status"
       status(pool)

@@ -31,8 +31,9 @@ RSpec.describe PoolCheck do
       check
       expect(sender.deliveries.size).to eq(1)
       body = sender.deliveries.first[:body]
-      expect(body).to include("set the heater to #{pool.recommendations.last.target_temp}°F",
-                              "Reply DONE once it's set", "add the water temperature if you have it")
+      expect(body).to include("Your heater should be set to: #{pool.recommendations.last.target_temp}°F",
+                              "Respond with current pool temperature to improve system accuracy.")
+      expect(body).not_to include("Why", "Coming up")
     end
 
     it "assumes the user follows the advice" do
@@ -68,7 +69,7 @@ RSpec.describe PoolCheck do
 
     it "texts and asks for confirmation" do
       check
-      expect(sender.deliveries.first[:body]).to include("Reply DONE")
+      expect(sender.deliveries.first[:body]).to end_with("Respond with current pool temperature to improve system accuracy.")
     end
   end
 
@@ -161,11 +162,11 @@ RSpec.describe PoolCheck, "planning" do
     expect(check.recommendation.reason).to include("heat it up from about 84°F")
   end
 
-  it "lists upcoming changes in the alert" do
+  it "says when cooler weather is coming" do
     snap = hourly_forecast { |h| (3 * 24...5 * 24).cover?(h) ? 40 : 65 }
     pool.update!(assumed_setpoint: nil)
     described_class.call(pool, weather: FakeWeather.new(forecast: snap))
-    expect(Sms.sender.last_body).to include("set the heater to", "Coming up:")
+    expect(Sms.sender.last_body).to start_with("Cooler weather coming.\nYour heater should be set to:")
   end
 end
 
@@ -176,7 +177,7 @@ RSpec.describe PoolCheck, "cover advice" do
 
   it "tells you to take the cover off when the water needs to cool, and assumes you did" do
     described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
-    expect(Sms.sender.last_body).to include("and take the cover off")
+    expect(Sms.sender.last_body).to include("Remove the cover for rapid cooling.")
     expect(pool.reload.cover_on).to be false
   end
 
@@ -203,7 +204,7 @@ RSpec.describe PoolCheck, "pump advice" do
   it "tells you to run the pump around the clock, and assumes you did" do
     pool.record_water_temp!(82)
     described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
-    expect(Sms.sender.last_body).to include("run the pump around the clock until it warms up")
+    expect(Sms.sender.last_body).to include("Leave the pump running 24 hours for now.")
     expect(pool.reload.pump_extended).to be true
   end
 
@@ -216,7 +217,7 @@ RSpec.describe PoolCheck, "pump advice" do
       travel_to(zone.local(2026, 10, 5, hour, 15)) do
         capable.record_water_temp!(91)
         described_class.call(capable, weather: FakeWeather.new(forecast: flat_forecast(65)))
-        expect(Sms.sender.last_body).to include("put the pump back on its normal schedule")
+        expect(Sms.sender.last_body).to include("Put the pump back on its normal schedule.")
         expect(capable.reload.pump_extended).to be false
       end
     end
@@ -229,5 +230,36 @@ RSpec.describe PoolCheck, "pump advice" do
       described_class.call(pool, weather: FakeWeather.new(forecast: flat_forecast(65)))
       expect(pool.reload.pump_extended).to be true
     end
+  end
+end
+
+RSpec.describe PoolCheck, ".message_for" do
+  let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
+
+  def message(pool, details)
+    rows = (0...(5 * 24)).map { |h| { t: (zone.local(2026, 10, 5) + h.hours).iso8601, air: details.fetch(:air).call(h) } }
+    result = Recommenders::Result.new(raw_target: 94, reason: "Because.", details: details.except(:air).merge(series: rows))
+    described_class.message_for(pool, result)
+  end
+
+  let(:steady) { ->(_) { 65 } }
+
+  it "is the heater setting and the request for a reading, nothing more, in steady weather without a cover" do
+    pool = build(:pool, has_cover: false)
+    expect(message(pool, air: steady, cover_on: nil, pump_extra: false))
+      .to eq("Your heater should be set to: 94°F\nRespond with current pool temperature to improve system accuracy.")
+  end
+
+  it "leads with warmer or cooler weather when a coming day's average differs by more than 5°F" do
+    pool = build(:pool, has_cover: false)
+    expect(message(pool, air: ->(h) { h < 48 ? 60 : 70 }, pump_extra: false)).to start_with("Warmer weather coming.\n")
+    expect(message(pool, air: ->(h) { h < 48 ? 60 : 50 }, pump_extra: false)).to start_with("Cooler weather coming.\n")
+    expect(message(pool, air: ->(h) { h < 48 ? 60 : 64 }, pump_extra: false)).to start_with("Your heater")
+  end
+
+  it "says what to do with the cover, for pools with one" do
+    pool = build(:pool, has_cover: true)
+    expect(message(pool, air: steady, cover_on: true, pump_extra: false)).to include("\nCover should be on when not in use.\n")
+    expect(message(pool, air: steady, cover_on: false, pump_extra: false)).to include("\nRemove the cover for rapid cooling.\n")
   end
 end

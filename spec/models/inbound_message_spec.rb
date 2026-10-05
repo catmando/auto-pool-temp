@@ -30,7 +30,7 @@ RSpec.describe InboundMessage do
   end
 
   describe "reporting the actual setting" do
-    %w[88 88F 88°F set\ 88 Set\ to\ 88].each do |body|
+    [ "heater 88", "Heater 88F", "heater is 88", "set 88", "Set to 88" ].each do |body|
       it "understands #{body.inspect}" do
         reply(body)
         expect(last_reply).to start_with("Thanks, noted 88°F")
@@ -38,26 +38,26 @@ RSpec.describe InboundMessage do
     end
 
     it "asks for a change when the reported setting is off" do
-      reply("85")
+      reply("heater 85")
       expect(last_reply).to include("noted 85°F").and match(/change it to 9[12]°F/) # 92 covers pump-off dips
       expect(pool.reload).to have_attributes(assumed_setpoint: last_reply[/change it to (\d+)/, 1].to_i, setpoint_source: "recommended")
     end
 
     it "confirms when the reported setting is right" do
-      reply("91")
+      reply("heater 91")
       expect(last_reply).to include("That's right for now")
       expect(pool.reload).to have_attributes(assumed_setpoint: 91, setpoint_source: "user_reported")
     end
 
     it "rejects implausible settings" do
-      reply("300")
+      reply("heater 300")
       expect(last_reply).to include("doesn't look like a heater setting")
       expect(pool.reload.assumed_setpoint).to eq(91)
     end
 
     it "reports forecast failures politely" do
       weather.error = Weather::OpenMeteo::Error.new("down")
-      reply("85")
+      reply("heater 85")
       expect(last_reply).to include("couldn't check the forecast")
     end
   end
@@ -223,8 +223,14 @@ RSpec.describe InboundMessage, "confirming an alert" do
     end
   end
 
-  it "still treats a bare number as the heater's actual setting" do
-    reply("90")
+  it "treats a bare number as done, with the water at that temperature" do
+    reply("86")
+    expect(pool.pool_logs.last).to have_attributes(kind: "setting_confirmed", setpoint: 94, water_temp: 86)
+    expect(sender.last_body).to start_with("Thanks, logged the heater at 94°F and the water at 86°F")
+  end
+
+  it "takes HEATER 84 as the heater's actual setting, not a confirmation" do
+    reply("heater 90")
     expect(pool.reload.assumed_setpoint).not_to be_nil
     expect(pool.pool_logs.where(kind: "setting_confirmed")).to be_empty
   end

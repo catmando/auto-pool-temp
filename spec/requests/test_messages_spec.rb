@@ -15,8 +15,8 @@ RSpec.describe "Send test message (Advanced settings)" do
     expect(flash[:notice]).to eq("Test message sent by Telegram: the alert your pool would get right now.")
     body = TelegramBot.sender.last_body
     plan = pool.recommendations.recent.first
-    expect(body).to start_with("Backyard: set the heater to #{plan.target_temp}°F")
-    expect(body).to include(plan.reason, "Reply DONE once it's set")
+    expect(body).to include("Your heater should be set to: #{plan.target_temp}°F", "Cover should be on when not in use.",
+                            "Respond with current pool temperature to improve system accuracy.")
     expect(body).to eq(TestMessagesController.body_for(pool.reload, plan))
     expect(pool.text_messages.last).to have_attributes(direction: "outbound", channel: "telegram", body: body)
   end

@@ -54,34 +54,34 @@ class PoolCheck
 
   def notified? = recommendation&.notified?
 
-  def self.message_for(pool, result, previous)
-    ask = "Reply DONE once it's set, and add the water temperature if you have it (e.g. \"done 86\")."
-    [ "#{pool.name}: set the heater to #{result.target}°F#{cover_instruction(pool, result)}#{pump_instruction(pool, result)}.",
-      result.reason, upcoming_changes(pool, result), ask ].compact.join(" ")
+  ASK_FOR_TEMP = "Respond with current pool temperature to improve system accuracy.".freeze
+
+  # The alert, short and to the point:
+  #   Cooler weather coming.                      (if a coming day's average is >5°F off today's)
+  #   Your heater should be set to: 94°F
+  #   Leave the pump running 24 hours for now.    (only when that's part of the advice)
+  #   Cover should be on when not in use.         (pools with a cover)
+  #   Respond with current pool temperature to improve system accuracy.
+  def self.message_for(pool, result, _previous = nil)
+    trend = WeatherTrend.for(result.details[:series], zone: pool.zone)
+    [ (trend && "#{trend.to_s.capitalize} weather coming."),
+      "Your heater should be set to: #{result.target}°F",
+      pump_line(pool, result),
+      cover_line(pool, result),
+      ASK_FOR_TEMP ].compact.join("\n")
   end
 
-  # ", and run the pump around the clock" / ", and put the pump back on its normal schedule".
-  def self.pump_instruction(pool, result)
+  def self.pump_line(pool, result)
     wanted = result.details[:pump_extra]
-    return "" if wanted.nil? || wanted == pool.pump_extended?
-
-    wanted ? ", and run the pump around the clock until it warms up" : ", and put the pump back on its normal schedule"
+    if wanted then "Leave the pump running 24 hours for now."
+    elsif wanted == false && pool.pump_extended? then "Put the pump back on its normal schedule."
+    end
   end
 
-  # ", and take the cover off" / ", and put the cover back on" when that should change.
-  def self.cover_instruction(pool, result)
-    wanted = result.details[:cover_on]
-    return "" if wanted.nil? || wanted == pool.cover_on?
+  def self.cover_line(pool, result)
+    return unless pool.has_cover?
 
-    wanted ? ", and put the cover back on" : ", and take the cover off"
-  end
-
-  def self.upcoming_changes(pool, result, limit: 3)
-    schedule = Array(result.details[:schedule])
-    changes = schedule.each_cons(2).filter_map { |a, b| b if b[:setpoint] != a[:setpoint] }.first(limit)
-    return if changes.empty?
-
-    "Coming up: " + changes.map { |c| "#{Time.zone.parse(c[:t].to_s).in_time_zone(pool.zone).strftime('%a %-l%P')} #{c[:setpoint]}°F" }.join(", ") + "."
+    result.details[:cover_on] == false ? "Remove the cover for rapid cooling." : "Cover should be on when not in use."
   end
 
   private
