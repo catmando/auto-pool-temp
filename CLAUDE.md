@@ -161,9 +161,12 @@ Single user for now; sign-up closes after the first account.
     the dashboard; the owner asked to remove it from Settings (2026-10-04). The dashboard cards distinguish the heater dial (only used to decide
     alerts) from the measured water temp (where the plan starts); the owner confused them on 2026-10-04
     (settings, heater setting, water reading, test mode). The "Preview now" button is gone.
-- **Dashboard top:** Current water temp (1/3: estimate, "Measured / Log it", last reading vs expected) and
-  Recommended settings (2/3: Heater, Pump normal / leave on 24 hours, Pool cover on/off, reason). The old
-  "Heater is set to" card and "Send alert now" button are gone (2026-10-05).
+- **Dashboard top:** Recommended settings (2/3: Heater, Pump normal / leave on 24 hours, Pool cover on/off, reason)
+  then Current water temp (1/3: estimate, "Actual / Log it", last reading vs expected). The old "Heater is set to"
+  card and "Send alert now" button are gone (2026-10-05).
+- **Icons:** favicon.ico (16/32/48), icon-192/512 PNGs, maskable 192/512 (Android shaped icons), full-bleed
+  apple-touch-icon (180), icon.svg for desktop, and the PWA manifest at /manifest.json. Android Chrome showed no
+  icon before favicon.ico, the sized PNGs, and the manifest existed. Regenerate the PNGs/ICO from icon.svg if it changes.
 - **Owner reports are logged, not used yet** (`PoolLog`): water readings (dashboard or "water 86" reply) and
   "done" confirmations after an alert ("done" / "done 86" / "ok" / "yes"), each with the model's expected
   water temp at that moment. A confirmation also re-records the heater setting as changed at that time.

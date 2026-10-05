@@ -2,20 +2,6 @@
 <% water = pool.estimated_water_temp %>
 <%= turbo_stream_from pool %><%# hourly re-plans and scheduled checks refresh this page %>
 <div class="top-row">
-  <section class="card water-card">
-    <h2>Current water temp</h2>
-    <p class="big"><%= water ? "~#{degrees(water)}" : "—" %></p>
-    <p class="muted">Expected from the plan, the weather, and your pump schedule.</p>
-    <%= form_with url: water_temp_path, method: :patch, class: "inline" do |f| %>
-      <label>Actual <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
-      <%= f.submit "Log it", class: "button secondary" %>
-    <% end %>
-    <p class="hint">Logging actual temps helps improve the algorithm's accuracy.</p>
-    <% if (reading = pool.pool_logs.recent.where.not(water_temp: nil).first) %>
-      <p class="hint">Last reading <%= degrees(reading.water_temp) %>, <%= local_time(reading.logged_at) %><% if reading.expected_water_temp %> (expected <%= degrees(reading.expected_water_temp) %>)<% end %>.</p>
-    <% end %>
-  </section>
-
   <section class="card settings-card">
     <h2>Recommended settings</h2>
     <% if @recommendation %>
@@ -33,6 +19,20 @@
       <p class="muted">Updated <%= local_time(@recommendation.created_at) %><%= " · alert sent" if @recommendation.notified? %></p>
     <% else %>
       <p class="muted">No plan yet.</p>
+    <% end %>
+  </section>
+
+  <section class="card water-card">
+    <h2>Current water temp</h2>
+    <p class="big"><%= water ? "~#{degrees(water)}" : "—" %></p>
+    <p class="muted">Expected from the plan, the weather, and your pump schedule.</p>
+    <%= form_with url: water_temp_path, method: :patch, class: "inline" do |f| %>
+      <label>Actual <%= f.number_field :water_temp, min: 32, max: 110, step: 0.5, class: "short" %>°F</label>
+      <%= f.submit "Log it", class: "button secondary" %>
+    <% end %>
+    <p class="hint">Logging actual temps helps improve the algorithm's accuracy.</p>
+    <% if (reading = pool.pool_logs.recent.where.not(water_temp: nil).first) %>
+      <p class="hint">Last reading <%= degrees(reading.water_temp) %>, <%= local_time(reading.logged_at) %><% if reading.expected_water_temp %> (expected <%= degrees(reading.expected_water_temp) %>)<% end %>.</p>
     <% end %>
   </section>
 </div>

@@ -11,11 +11,11 @@ RSpec.describe "Dashboard" do
     expect(response).to redirect_to(edit_pool_path)
   end
 
-  it "leads with the current water temp and the recommended settings" do
+  it "leads with the recommended settings, then the current water temp" do
     get root_path
     expect(response).to have_http_status(:ok)
     body = response.body
-    expect(body.index("Current water temp")).to be < body.index("Recommended settings")
+    expect(body.index("Recommended settings")).to be < body.index("Current water temp")
     expect(body).to include("~88°F", "<dt>Heater</dt>", "<dt>Pump</dt>", "Normal schedule", "Updated",
                             "Austin, Texas, US", "alerts go to Telegram")
     expect(body).not_to include("Heater is set to", "Send alert now", "Preview now")
