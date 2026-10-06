@@ -55,7 +55,10 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: "auto-pool-temp.fly.dev", protocol: "https" }
+
+  # The app's public address (Twilio delivery reports are sent here). APP_URL overrides it.
+  config.x.public_url = "https://auto-pool-temp.fly.dev"
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {

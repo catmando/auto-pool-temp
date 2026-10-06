@@ -1,0 +1,36 @@
+<% content_for :title, "Privacy policy" %>
+<section class="card prose">
+  <h1>Privacy policy</h1>
+  <p>Auto Pool Temp is a small personal project run by <%= SmsProgram::SENDER %>. This policy covers the app and its
+    text alerts (<%= link_to SmsProgram::NAME, sms_path %>).</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li>Your email address and password (stored encrypted) to sign in.</li>
+    <li>Your pool's location (a ZIP code or map point) to get the weather forecast.</li>
+    <li>Your pool settings, and readings you send us, such as the water temperature.</li>
+    <li>If you choose text alerts: your mobile number, when you agreed to receive messages, and the messages sent and
+      received.</li>
+    <li>If you choose Telegram alerts: your Telegram chat ID.</li>
+  </ul>
+
+  <h2>How we use it</h2>
+  <p>Only to run the app: to plan your pool's heater settings and send you the alerts you asked for.</p>
+
+  <h2>Sharing</h2>
+  <p><strong>No mobile information will be shared with third parties or affiliates for marketing or promotional
+    purposes.</strong> Text messaging opt-in data and consent will not be shared with any third parties. We don't sell
+    any information. Messages are delivered through our providers (Twilio for text messages, Telegram for Telegram
+    messages), which handle them only to deliver them. Weather forecasts come from Open-Meteo using your pool's location.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Reply STOP to any text to stop text messages.</li>
+    <li>Change or remove your phone number in Settings at any time.</li>
+    <li>To have your account and data deleted, email <%= SmsProgram::CONTACT_EMAIL %>.</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p><%= SmsProgram::SENDER %>, <%= SmsProgram::CONTACT_EMAIL %></p>
+  <p class="muted">Last updated October 5, 2026.</p>
+</section>

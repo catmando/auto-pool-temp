@@ -130,3 +130,9 @@ dl.settings div { background: var(--bg); border-radius: 8px; padding: .5rem .75r
 dl.settings dt { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 dl.settings dd { margin: .1rem 0 0; font-size: 1.5rem; font-weight: 700; }
 dl.settings dd .muted { display: block; font-size: .8rem; font-weight: 400; }
+.site-footer { max-width: 960px; margin: 0 auto; padding: 1rem 1rem 2rem; font-size: .85rem; color: var(--muted); text-align: center; }
+.prose { max-width: 720px; }
+.prose h2 { margin-top: 1.25rem; }
+.prose blockquote { margin: .5rem 0; padding: .5rem .9rem; border-left: 3px solid var(--accent); background: var(--bg); }
+label.check.consent { align-items: flex-start; gap: .5rem; margin-top: .75rem; font-size: .85rem; color: var(--muted); }
+label.check.consent input { margin-top: .2rem; }

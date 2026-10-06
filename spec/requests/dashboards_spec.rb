@@ -73,6 +73,16 @@ RSpec.describe "Dashboard" do
     end
   end
 
+  it "says alerts go by text for a text pool, and warns until the number is confirmed" do
+    pool.update!(notification_channel: "sms", phone_number: "+15125550100", sms_consent: true)
+    get root_path
+    expect(response.body).to include("alerts go to your phone by text")
+    expect(response.body).not_to include("number not confirmed yet")
+    pool.update!(phone_verified_at: nil)
+    get root_path
+    expect(response.body).to include("number not confirmed yet")
+  end
+
   it "warns when Telegram isn't connected" do
     pool.update!(telegram_chat_id: nil)
     get root_path

@@ -65,7 +65,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified: 510 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified (2026-10-05): 534 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -93,19 +93,30 @@ Single user for now; sign-up closes after the first account.
    Replies (setpoint numbers, STATUS) work through the tunnel.
 2. Done: deployed to Fly. Deploy again with `fly deploy`. Logs: `fly logs`. Console:
    `fly ssh console -C "bin/rails console"`. The owner still needs to sign up on the live site and reconnect Telegram there.
-3. SMS for real: upgrade Twilio, then register A2P 10DLC (or verify a toll-free number).
+3. **SMS for real (in progress, 2026-10-05): A2P 10DLC, Sole Proprietor** on the existing Twilio account
+   (the owner tried a business registration and backed off as too heavy for a test). Sender name
+   "Mitch VanDuyn", contact mitch@catprint.com, number +1 628-296-1482. The app side is built for carrier review:
+   public `/sms` (program description and opt-in) and `/privacy` pages, wording in `SmsProgram`,
+   consent checkbox on Settings (`pools.sms_consent_at`; text alerts need a phone and consent, and
+   `contact_verified?` refuses texts without consent), HELP/INFO reply, STOP/START already handled,
+   delivery status callback at `/twilio/status` (signed, `TwilioStatusesController`).
+   Console steps left for the owner: register the Sole Proprietor brand (OTP to their mobile), create a
+   Messaging Service with the 628 number, register the campaign (opt-in URL https://auto-pool-temp.fly.dev/sms,
+   privacy https://auto-pool-temp.fly.dev/privacy), point incoming SMS at https://auto-pool-temp.fly.dev/twilio/sms.
+   After approval: end-to-end text test, then **rotate the Twilio auth token** (it was pasted in chat 2026-10-05).
    **`config/master.key` is gitignored. Copy it to other machines yourself, or the
    credentials won't decrypt.**
 4. Partly done: SMS delivery status is looked up from Twilio (`TextMessage#refresh_delivery_status!`)
    on the Settings page, the Messages page, and right after sending a code, with error codes explained
-   in plain English. Still TODO: PoolCheck assumes the user followed an alert as soon as Twilio
-   *queues* it, so a later carrier rejection doesn't undo that (fix with a status callback or a recheck).
+   in plain English, and Twilio now pushes final statuses to `/twilio/status` (production only:
+   `Sms.status_callback_url` uses `APP_URL` or `config.x.public_url`). Still TODO: PoolCheck assumes the
+   user followed an alert as soon as Twilio *queues* it, so a later carrier rejection doesn't undo that.
 5. `bin/tunnel` now waits for the tunnel to answer `/up` before registering webhooks, because Telegram
    rejects hostnames it can't resolve yet, and retries. The first version registered too early
    (2026-10-04). The fix passes `ruby -c` but hasn't been run end to end.
 6. Keep tuning the planner with the owner using the Lab page (2026-10-04: the owner wants to iterate).
-7. UI is **Telegram-only** for now (no channel picker or phone field). SMS code paths and specs remain
-   for when A2P registration is done. Sign-up stays closed; the sign-in page says so.
+7. Settings has a channel picker again (Telegram or text message), with phone number and consent box.
+   Saving a new number texts a confirmation code. Sign-up stays closed; the sign-in page says so.
 
 ## Architecture
 - `Weather::Forecast` is a normalized time series of air temps (°F), with

@@ -1,17 +1,41 @@
-<%# Telegram only for now. SMS (PhoneVerification, Twilio) stays in the code for later. %>
+<%# Where alerts go: a Telegram chat (linked with a one-time link) or a text
+    number (confirmed with a texted code). %>
 <section class="card" id="delivery">
-  <h2>Alerts in Telegram</h2>
-  <% if !TelegramBot.configured? %>
-    <p class="muted">The Telegram bot isn't set up yet (no bot token).</p>
-  <% elsif pool.telegram_linked? %>
-    <p><span class="ok">Connected ✓</span> <span class="muted">since <%= local_time(pool.telegram_linked_at, pool) %></span></p>
-    <%= button_to "Disconnect", telegram_link_path, method: :delete, class: "button secondary" %>
-  <% elsif (url = telegram_link_url(pool)) %>
-    <p><%= link_to "Open Telegram to connect", url, class: "button", target: "_blank", rel: "noopener" %></p>
-    <p class="muted">Then press <strong>Start</strong> in Telegram. This link works once, for 30 minutes.</p>
-    <%= button_to "Make a new link", telegram_link_path, class: "link" %>
+  <% if pool.notification_channel == "sms" %>
+    <h2>Alerts by text message</h2>
+    <% verification = PhoneVerification.new(pool) %>
+    <% if pool.phone_number.blank? %>
+      <p class="muted">Add your mobile number under Alerts below.</p>
+    <% elsif pool.phone_verified? %>
+      <p><%= pool.phone_number %> <span class="ok">Confirmed ✓</span></p>
+    <% else %>
+      <p><%= pool.phone_number %> <span class="error">not confirmed yet, so no alerts will be sent.</span></p>
+      <% if verification.pending? %>
+        <%= form_with url: phone_verification_path, method: :patch, class: "inline" do |f| %>
+          <label>Code <%= f.text_field :code, inputmode: "numeric", autocomplete: "one-time-code", maxlength: 6, class: "short", required: true %></label>
+          <%= f.submit "Confirm", class: "button" %>
+        <% end %>
+        <p class="muted">Sent <%= local_time(pool.phone_verification_sent_at, pool) %>. You can also reply to the text with the code.</p>
+      <% end %>
+      <% if (last = verification.last_code_message) %>
+        <p class="<%= last.failed? ? 'error' : 'muted' %>">Last code text: <strong><%= last.status %></strong><% if last.error.present? %>: <%= last.error %><% end %></p>
+      <% end %>
+      <%= button_to(verification.pending? ? "Send a new code" : "Text me a code", phone_verification_path, class: "button secondary") %>
+    <% end %>
   <% else %>
-    <p><span class="error">Not connected yet, so no alerts will be sent.</span></p>
-    <%= button_to "Connect Telegram", telegram_link_path, class: "button" %>
+    <h2>Alerts in Telegram</h2>
+    <% if !TelegramBot.configured? %>
+      <p class="muted">The Telegram bot isn't set up yet (no bot token).</p>
+    <% elsif pool.telegram_linked? %>
+      <p><span class="ok">Connected ✓</span> <span class="muted">since <%= local_time(pool.telegram_linked_at, pool) %></span></p>
+      <%= button_to "Disconnect", telegram_link_path, method: :delete, class: "button secondary" %>
+    <% elsif (url = telegram_link_url(pool)) %>
+      <p><%= link_to "Open Telegram to connect", url, class: "button", target: "_blank", rel: "noopener" %></p>
+      <p class="muted">Then press <strong>Start</strong> in Telegram. This link works once, for 30 minutes.</p>
+      <%= button_to "Make a new link", telegram_link_path, class: "link" %>
+    <% else %>
+      <p><span class="error">Not connected yet, so no alerts will be sent.</span></p>
+      <%= button_to "Connect Telegram", telegram_link_path, class: "button" %>
+    <% end %>
   <% end %>
 </section>

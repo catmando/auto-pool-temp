@@ -73,6 +73,16 @@
       </label>
       <label class="check"><%= f.check_box :notifications_enabled %> Send alerts</label>
     </div>
+    <div class="fields">
+      <label>Send alerts by
+        <%= f.select :notification_channel, [ [ "Telegram", "telegram" ], [ "Text message", "sms" ] ] %>
+      </label>
+      <label>Mobile number (for text alerts) <%= f.telephone_field :phone_number, placeholder: "(585) 555-0123" %></label>
+    </div>
+    <label class="check consent">
+      <%= f.check_box :sms_consent, checked: pool.sms_consent_given? %>
+      <span><%= SmsProgram::CONSENT %> <%= link_to "Details", sms_path %> · <%= link_to "Privacy", privacy_path %></span>
+    </label>
   </section>
 
   <details class="card advanced" id="advanced">

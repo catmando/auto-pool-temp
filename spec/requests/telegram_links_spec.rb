@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Connecting Telegram" do
-  let(:pool) { create(:pool) }
+  let(:pool) { create(:pool, notification_channel: "telegram") }
 
   before { sign_in_as(pool.user) }
 

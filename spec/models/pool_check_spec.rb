@@ -87,7 +87,7 @@ RSpec.describe PoolCheck do
   end
 
   it "doesn't text without a phone number" do
-    pool.update!(phone_number: nil)
+    pool.update_column(:phone_number, nil)
     check
     expect(sender.deliveries).to be_empty
   end

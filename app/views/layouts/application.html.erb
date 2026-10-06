@@ -51,5 +51,8 @@
       <% if alert.present? %><div class="flash alert"><%= alert %></div><% end %>
       <%= yield %>
     </main>
+    <footer class="site-footer">
+      <%= link_to "Text alerts", sms_path %> · <%= link_to "Privacy", privacy_path %>
+    </footer>
   </body>
 </html>

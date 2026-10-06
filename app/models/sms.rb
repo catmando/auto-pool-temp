@@ -15,6 +15,12 @@ module Sms
     @@sender ||= TwilioSender.configured? ? TwilioSender.new : LogSender.new
   end
 
+  # Where Twilio reports delivery results; nil without a public URL (dev/test).
+  def self.status_callback_url
+    base = ENV["APP_URL"].presence || Rails.application.config.x.public_url.presence
+    base && "#{base.chomp("/")}/twilio/status"
+  end
+
   def self.config(key)
     ENV["TWILIO_#{key.to_s.upcase}"].presence || Rails.application.credentials.dig(:twilio, key)
   end

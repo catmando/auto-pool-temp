@@ -51,7 +51,7 @@
   <p>
     <%= pool.location_name.presence || "#{pool.latitude}, #{pool.longitude}" %> (<%= pool.time_zone %>).
     Checks at <%= pool.check_hours.map { |h| Time.zone.parse("#{h}:00").strftime("%-l%P") }.to_sentence %> local time;
-    alerts go to Telegram<% if !pool.notifications_enabled? %> (paused)<% elsif !pool.contact_verified? %> (<%= link_to "not connected yet", edit_pool_path(anchor: "delivery") %>, so nothing is sent)<% end %>.
+    alerts go to <%= pool.notification_channel == "sms" ? "your phone by text" : "Telegram" %><% if !pool.notifications_enabled? %> (paused)<% elsif !pool.contact_verified? %> (<%= link_to(pool.notification_channel == "sms" ? "number not confirmed yet" : "not connected yet", edit_pool_path(anchor: "delivery")) %>, so nothing is sent)<% end %>.
   </p>
   <p class="muted">Last scheduled check: <%= local_time(pool.last_checked_at) %>.</p>
 </section>

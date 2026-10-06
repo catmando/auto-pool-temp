@@ -17,6 +17,18 @@ RSpec.describe InboundMessage do
     expect(inbound).to have_attributes(pool: pool, channel: "sms", body: "status", from: "(512) 555-0100")
   end
 
+  it "answers HELP with the program description and how to stop" do
+    reply("HELP")
+    expect(last_reply).to eq(SmsProgram::HELP)
+    expect(last_reply).to include("Reply STOP", SmsProgram::CONTACT_EMAIL)
+  end
+
+  it "answers /help in Telegram too" do
+    create(:pool, :telegram)
+    reply("/help", channel: "telegram", from: "424242")
+    expect(last_reply).to eq(SmsProgram::HELP)
+  end
+
   it "replies on the same channel, to the sender" do
     reply("status")
     expect(sender.deliveries.last[:to]).to eq("(512) 555-0100")

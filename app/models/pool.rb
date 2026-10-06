@@ -40,6 +40,14 @@ class Pool < ApplicationRecord
   validates :phone_number, format: { with: /\A\+\d{10,15}\z/, message: "must be a valid phone number" }, allow_nil: true
   validates :assumed_setpoint, numericality: { only_integer: true, in: 40..110 }, allow_nil: true
   validates :notification_channel, inclusion: { in: Notifications.channels }
+  # Checked when the alert settings change, so routine saves (check times, readings) never fail.
+  validate :sms_needs_phone_and_consent, if: -> { will_save_change_to_notification_channel? ||
+                                                  will_save_change_to_phone_number? || will_save_change_to_sms_consent_at? }
+
+  # The "I agree to receive text alerts" checkbox (Settings). Checking it records when;
+  # unchecking it withdraws consent.
+  attribute :sms_consent, :boolean
+  before_validation :record_sms_consent, unless: -> { sms_consent.nil? }
   validate :time_zone_exists
   validate :anchors_distinct
 
@@ -47,6 +55,9 @@ class Pool < ApplicationRecord
   before_save :reset_phone_verification, if: -> { will_save_change_to_phone_number? && !will_save_change_to_phone_verified_at? }
 
   def located? = latitude.present? && longitude.present?
+
+  # Did the owner agree to receive text alerts (and when)?
+  def sms_consent_given? = sms_consent_at.present?
 
   def test_mode? = test_snapshot_id.present?
 
@@ -59,9 +70,9 @@ class Pool < ApplicationRecord
 
   def telegram_linked? = telegram_chat_id.present?
 
-  # Is the address for the chosen channel confirmed?
+  # Is the address for the chosen channel confirmed (and, for texts, agreed to)?
   def contact_verified?
-    notification_channel == "telegram" ? telegram_linked? : phone_verified?
+    notification_channel == "telegram" ? telegram_linked? : phone_verified? && sms_consent_given?
   end
 
   def notifiable? = notifications_enabled? && contact_verified?
@@ -175,6 +186,17 @@ class Pool < ApplicationRecord
     return {} unless estimate
 
     { water_temp: estimate, water_temp_at: at, water_temp_source: water_temp_at == at ? water_temp_source : "estimated" }
+  end
+
+  def record_sms_consent
+    self.sms_consent_at = sms_consent ? (sms_consent_at || Time.current) : nil
+  end
+
+  def sms_needs_phone_and_consent
+    return unless notification_channel == "sms"
+
+    errors.add(:phone_number, "is needed for text alerts") if phone_number.blank?
+    errors.add(:base, "Check the box agreeing to receive text alerts") unless sms_consent_given?
   end
 
   def reset_phone_verification

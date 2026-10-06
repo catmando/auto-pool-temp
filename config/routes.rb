@@ -22,10 +22,16 @@ Rails.application.routes.draw do
 
   # Twilio inbound SMS webhook (configure as the "A message comes in" URL)
   post "twilio/sms" => "twilio_webhooks#create", as: :twilio_sms
+  # Twilio delivery reports for messages we send
+  post "twilio/status" => "twilio_statuses#create", as: :twilio_status
   # Telegram bot webhook (registered by bin/tunnel or `bin/rails notify:webhooks[url]`)
   post "telegram/webhook" => "telegram_webhooks#create", as: :telegram_webhook
 
   get "up" => "rails/health#show", as: :rails_health_check
+
+  # Public pages (carrier reviewers read these for the SMS registration)
+  get "sms" => "pages#sms"
+  get "privacy" => "pages#privacy"
 
   # App manifest: name and icons for "Add to Home screen" (Android uses it for the icon).
   get "manifest" => "rails/pwa#manifest", as: :pwa_manifest

@@ -18,6 +18,7 @@ FactoryBot.define do
     phone_verified_at { Time.current }
     # SMS stays supported in the backend; most specs exercise it. See :telegram.
     notification_channel { "sms" }
+    sms_consent_at { Time.current } # SMS alerts need recorded opt-in
 
     trait :unverified do
       phone_verified_at { nil }

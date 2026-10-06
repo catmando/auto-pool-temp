@@ -8,6 +8,7 @@
 #   "heater 84" / "set 84"     -> the heater is actually at 84°F; re-check and advise
 #   "cover on" / "cover off"   -> the pool cover is now on / off
 #   "pump on" / "pump normal"  -> the pump is running around the clock / back on its schedule
+#   "help" / "info"            -> the program description carriers require (SmsProgram::HELP)
 #   "status" / "?"             -> what the heater should be set to now
 #   "pause" / "resume"         -> turn alerts off / on (Twilio also handles STOP itself)
 #   anything else              -> help
@@ -90,6 +91,8 @@ class InboundMessage
       confirmed($1&.to_f, pool)
     when /\A(?:heater|set)\s*(?:is|at|to|=|:)?\s*(\d{2,3})\s*°?\s*f?\z/
       reported($1.to_i, pool)
+    when "help", "info", "/help"
+      SmsProgram::HELP
     when "status", "?", "/status"
       status(pool)
     when "pause", "stop", "/pause"

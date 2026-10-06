@@ -8,8 +8,12 @@ module Sms
       @client = client
     end
 
+    # Twilio reports each message's final status (delivered, or rejected by the carrier) to
+    # TwilioStatusesController when the app has a public URL (production).
     def deliver(to:, body:)
-      message = client.messages.create(from: Sms.config(:from_number), to: to, body: body)
+      params = { from: Sms.config(:from_number), to: to, body: body }
+      params[:status_callback] = Sms.status_callback_url if Sms.status_callback_url
+      message = client.messages.create(**params)
       Delivery.new(sid: message.sid, status: message.status)
     rescue Twilio::REST::TwilioError => e
       raise Error, e.message

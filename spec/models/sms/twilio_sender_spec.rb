@@ -37,6 +37,16 @@ RSpec.describe Sms::TwilioSender do
         .to eq(Sms::Delivery.new(sid: "SM9", status: "queued"))
     end
 
+it "asks Twilio to report delivery status when the app has a public URL" do
+      ENV["APP_URL"] = "https://pool.example/"
+      expect(messages).to receive(:create)
+        .with(from: "+15550001111", to: "+15125550100", body: "Hi", status_callback: "https://pool.example/twilio/status")
+        .and_return(double(sid: "SM9", status: "queued"))
+      described_class.new(client: client).deliver(to: "+15125550100", body: "Hi")
+    ensure
+      ENV["APP_URL"] = nil
+    end
+
     it "wraps Twilio errors" do
       allow(messages).to receive(:create).and_raise(Twilio::REST::TwilioError.new("bad"))
       expect { described_class.new(client: client).deliver(to: "+1", body: "Hi") }.to raise_error(Sms::Error, "bad")

@@ -1,0 +1,31 @@
+<% content_for :title, "Text alerts" %>
+<section class="card prose">
+  <h1><%= SmsProgram::NAME %></h1>
+  <p><%= SmsProgram::NAME %> is a small personal project run by <%= SmsProgram::SENDER %>. It watches the weather forecast
+    for a pool's location and tells the pool owner when to change the pool heater setting, run the pump longer, or
+    take the pool cover off.</p>
+
+  <h2>What you'll get</h2>
+  <ul>
+    <li>Pool heater, pump, and cover advice, <%= SmsProgram::FREQUENCY %>.</li>
+    <li>A one-time code when you add or change your phone number, to confirm it's yours.</li>
+    <li>Replies to messages you send (for example, STATUS).</li>
+  </ul>
+  <p>Example: “Cooler weather coming. Your heater should be set to: 94°F. Cover should be on when not in use.
+    Respond with current pool temperature to improve system accuracy.”</p>
+
+  <h2>How to sign up</h2>
+  <p>Text alerts are opt-in. In the app's Settings, under Alerts, choose “Text message”, enter your mobile number, and
+    check the box agreeing to receive these messages. The checkbox says:</p>
+  <blockquote><%= SmsProgram::CONSENT %></blockquote>
+  <p>We then text a one-time code to confirm the number, and alerts start once it's confirmed.</p>
+
+  <h2>Stopping and help</h2>
+  <ul>
+    <li>Reply <strong>STOP</strong> at any time to stop all messages. Reply <strong>START</strong> to start again.</li>
+    <li>Reply <strong>HELP</strong> for help, or email <%= SmsProgram::CONTACT_EMAIL %>.</li>
+    <li>Message and data rates may apply. Carriers aren't liable for delayed or undelivered messages.</li>
+  </ul>
+
+  <p>See the <%= link_to "privacy policy", privacy_path %>.</p>
+</section>

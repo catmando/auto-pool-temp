@@ -28,7 +28,7 @@ RSpec.describe PhoneVerification do
     end
 
     it "needs a phone number" do
-      pool.update!(phone_number: nil)
+      pool.update_column(:phone_number, nil)
       expect { send_code }.to raise_error(described_class::Error, /mobile number/)
     end
 
