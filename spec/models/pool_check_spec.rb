@@ -162,11 +162,20 @@ RSpec.describe PoolCheck, "planning" do
     expect(check.recommendation.reason).to include("heat it up from about 84°F")
   end
 
-  it "says when cooler weather is coming" do
+  it "says colder weather is coming when heating the pool for it" do
     snap = hourly_forecast { |h| (3 * 24...5 * 24).cover?(h) ? 40 : 65 }
     pool.update!(assumed_setpoint: nil)
+    pool.record_water_temp!(86)
     described_class.call(pool, weather: FakeWeather.new(forecast: snap))
-    expect(Sms.sender.last_body).to start_with("Cooler weather coming.\nYour heater should be set to:")
+    expect(Sms.sender.last_body).to start_with("Colder weather coming.\nYour heater should be set to:")
+  end
+
+  it "doesn't mention the weather when the setting holds the water where it is" do
+    snap = hourly_forecast { |h| (3 * 24...5 * 24).cover?(h) ? 40 : 65 }
+    pool.update!(assumed_setpoint: nil)
+    pool.record_water_temp!(91)
+    described_class.call(pool, weather: FakeWeather.new(forecast: snap))
+    expect(Sms.sender.last_body).to start_with("Your heater should be set to: 91°F")
   end
 end
 
@@ -236,9 +245,13 @@ end
 RSpec.describe PoolCheck, ".message_for" do
   let(:zone) { ActiveSupport::TimeZone["America/Chicago"] }
 
-  def message(pool, details)
-    rows = (0...(5 * 24)).map { |h| { t: (zone.local(2026, 10, 5) + h.hours).iso8601, air: details.fetch(:air).call(h) } }
-    result = Recommenders::Result.new(raw_target: 94, reason: "Because.", details: details.except(:air).merge(series: rows))
+  # target: the new heater setting; water: the water now; party: hours (from now) of a pool party.
+  def message(pool, details, target: 94, water: 94, party: nil)
+    rows = (0...(5 * 24)).map do |h|
+      { t: (zone.local(2026, 10, 5) + h.hours).iso8601, air: details.fetch(:air).call(h), party: party&.cover?(h) ? "party" : nil }
+    end
+    result = Recommenders::Result.new(raw_target: target, reason: "Because.",
+                                      details: details.except(:air).merge(series: rows, water_now: water))
     described_class.message_for(pool, result)
   end
 
@@ -246,20 +259,55 @@ RSpec.describe PoolCheck, ".message_for" do
 
   it "is the heater setting and the request for a reading, nothing more, in steady weather without a cover" do
     pool = build(:pool, has_cover: false)
-    expect(message(pool, air: steady, cover_on: nil, pump_extra: false))
+    expect(message(pool, { air: steady, cover_on: nil, pump_extra: false }))
       .to eq("Your heater should be set to: 94°F\nRespond with current pool temperature to improve system accuracy.")
   end
 
-  it "leads with warmer or cooler weather when a coming day's average differs by more than 5°F" do
-    pool = build(:pool, has_cover: false)
-    expect(message(pool, air: ->(h) { h < 48 ? 60 : 70 }, pump_extra: false)).to start_with("Warmer weather coming.\n")
-    expect(message(pool, air: ->(h) { h < 48 ? 60 : 50 }, pump_extra: false)).to start_with("Cooler weather coming.\n")
-    expect(message(pool, air: ->(h) { h < 48 ? 60 : 64 }, pump_extra: false)).to start_with("Your heater")
+  describe "the first line: why the setting is changing" do
+    let(:pool) { build(:pool, has_cover: false) }
+    let(:warming) { ->(h) { h < 48 ? 60 : 70 } }
+    let(:cooling) { ->(h) { h < 48 ? 60 : 50 } }
+
+    it "says colder weather is coming when heating the pool up for it" do
+      expect(message(pool, { air: cooling }, target: 96, water: 92)).to start_with("Colder weather coming.\nYour heater")
+    end
+
+    it "says warmer weather is coming when cooling the pool off for it" do
+      expect(message(pool, { air: warming }, target: 88, water: 92)).to start_with("Warmer weather coming.\nYour heater")
+    end
+
+    it "never blames the weather for the opposite move (the 2026-10-09 alert said warmer weather while heating)" do
+      expect(message(pool, { air: warming }, target: 96, water: 92)).to start_with("Your heater")
+      expect(message(pool, { air: cooling }, target: 88, water: 92)).to start_with("Your heater")
+    end
+
+    it "says nothing about the weather when holding, or when the change is small" do
+      expect(message(pool, { air: cooling }, target: 92, water: 92)).to start_with("Your heater")
+      expect(message(pool, { air: ->(h) { h < 48 ? 60 : 64 } }, target: 96, water: 92)).to start_with("Your heater")
+    end
+
+    it "says to get ready for a pool party within 2 days, instead of the weather" do
+      expect(message(pool, { air: warming }, target: 101, water: 94, party: 30...40))
+        .to start_with("Get ready for your pool party.\nYour heater")
+      expect(message(pool, { air: steady }, target: 101, water: 101, party: 0...10))
+        .to start_with("Get ready for your pool party.\n")
+      expect(message(pool, { air: steady }, target: 101, water: 94, party: 60...70)).to start_with("Your heater")
+    end
+
+    it "doesn't say get ready for a party while cooling off" do
+      expect(message(pool, { air: warming }, target: 88, water: 92, party: 30...40)).to start_with("Warmer weather coming.\n")
+    end
+
+    it "works from a saved plan (string keys and values, as the test-message button uses)" do
+      rows = (0...48).map { |h| { "t" => (zone.local(2026, 10, 5) + h.hours).iso8601, "air" => 60, "party" => (h == 5 ? "party" : nil) } }
+      result = Recommenders::Result.new(raw_target: 101, reason: "x", details: { series: rows, water_now: 95.0 })
+      expect(described_class.message_for(pool, result)).to start_with("Get ready for your pool party.\n")
+    end
   end
 
   it "says what to do with the cover, for pools with one" do
     pool = build(:pool, has_cover: true)
-    expect(message(pool, air: steady, cover_on: true, pump_extra: false)).to include("\nCover should be on when not in use.\n")
-    expect(message(pool, air: steady, cover_on: false, pump_extra: false)).to include("\nRemove the cover for rapid cooling.\n")
+    expect(message(pool, { air: steady, cover_on: true, pump_extra: false })).to include("\nCover should be on when not in use.\n")
+    expect(message(pool, { air: steady, cover_on: false, pump_extra: false }, target: 90)).to include("\nRemove the cover for rapid cooling.\n")
   end
 end

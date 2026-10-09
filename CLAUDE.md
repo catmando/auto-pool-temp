@@ -65,7 +65,7 @@ Single user for now; sign-up closes after the first account.
   scheduler, **notification channels (SMS via Twilio, Telegram bot)** with
   **contact confirmation** (texted 6-digit code / Telegram one-time deep link),
   inbound replies on both channels.
-- Verified (2026-10-05): 534 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
+- Verified (2026-10-09): 544 specs green, RuboCop clean, Brakeman 0 warnings, bundler-audit clean.
 - **Twilio is configured** (trial account, number +1 628-296-1482, keys in encrypted
   credentials), **but US carriers block its texts: error 30034, unregistered A2P 10DLC.**
   Long term the owner wants SMS, which needs an account upgrade plus A2P 10DLC registration
@@ -136,6 +136,9 @@ Single user for now; sign-up closes after the first account.
   a setting plus cover on/off (`SchedulePlanner::Decision`). scores it with
   `Comfort`, merges multi-day ramps into one setting change (`merge_ramps`: while the water is moving
   flat out, a further setting does the same thing), and writes the reason text.
+  - **Cover rule** (owner, 2026-10-09): the cover may only come off when the setting is below the water, i.e.
+    to cool (`Search#actions_for`). A party plan had said "heater 102" and "remove the cover" together.
+    Swept in `spec/models/recommenders/cover_rule_spec.rb`.
   - **Change discipline** (`Search#best_decision`): the cover stays on unless off is noticeably better, and
     the setting stays put unless a change is noticeably better (`KEEP_SETTING_SLACK` = 2 °F·hours). At 0.5 the
     plan flip-flopped (91/92) about every check in steady weather (~19 changes in 16 days); found and fixed
@@ -182,8 +185,12 @@ Single user for now; sign-up closes after the first account.
   "done" confirmations after an alert ("done" / "done 86" / "ok" / "yes"), each with the model's expected
   water temp at that moment. A confirmation also re-records the heater setting as changed at that time.
   Later: use these to tune each pool's model.
-- **Alert text** (2026-10-05, owner's format): optional "Warmer/Cooler weather coming." (`WeatherTrend`: a coming day's
-  average air within 4 days differs from today's by >5°F), "Your heater should be set to: N°F", a pump line only when
+- **Alert text** (2026-10-05, owner's format; first line revised 2026-10-09): an optional first line saying why
+  (`PoolCheck.headline`): "Get ready for your pool party." when a party is on or within 48h (unless the plan is
+  cooling); otherwise "Colder weather coming." only when *heating* and "Warmer weather coming." only when *cooling*,
+  each only if `WeatherTrend` agrees (a coming day's average air within 4 days differs from today's by >5°F in that
+  direction). Holding, or a trend in the opposite direction, gets no first line. (On 2026-10-09 an alert said
+  "Warmer weather coming" while heating for a party.) Then "Your heater should be set to: N°F", a pump line only when
   pump-around-the-clock is part of the advice, a cover line for pools with a cover ("Cover should be on when not in
   use." / "Remove the cover for rapid cooling."), then "Respond with current pool temperature to improve system
   accuracy." **Any reply with a number ("86") = done + water reading**; "done"/"ok" = done; "heater 84" = the heater's

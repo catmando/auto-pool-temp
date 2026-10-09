@@ -166,7 +166,9 @@ module Recommenders
       action += cover_advice(decisions.first)
       action += ", and run the pump around the clock until it catches up" if decisions.first.pump_extra
 
-      if (next_party = party.index(:party)) && next_party < 48 && setpoint > ideal_today + 1
+      if party.first == :party
+        return "Your pool party is on (target #{desired.first.round}°F), so #{action}."
+      elsif (next_party = party.index(:party)) && next_party < 48 && setpoint > ideal_today + 1
         return "Getting ready for your pool party at #{fmt_time(hours[next_party])} " \
                "(target #{desired[next_party].round}°F), so #{action}."
       end

@@ -57,18 +57,38 @@ class PoolCheck
   ASK_FOR_TEMP = "Respond with current pool temperature to improve system accuracy.".freeze
 
   # The alert, short and to the point:
-  #   Cooler weather coming.                      (if a coming day's average is >5°F off today's)
+  #   Colder weather coming.                      (why, if there's a reason to give; see headline)
   #   Your heater should be set to: 94°F
   #   Leave the pump running 24 hours for now.    (only when that's part of the advice)
   #   Cover should be on when not in use.         (pools with a cover)
   #   Respond with current pool temperature to improve system accuracy.
   def self.message_for(pool, result, _previous = nil)
-    trend = WeatherTrend.for(result.details[:series], zone: pool.zone)
-    [ (trend && "#{trend.to_s.capitalize} weather coming."),
+    [ headline(pool, result),
       "Your heater should be set to: #{result.target}°F",
       pump_line(pool, result),
       cover_line(pool, result),
       ASK_FOR_TEMP ].compact.join("\n")
+  end
+
+  PARTY_HEADS_UP = 48 # hours
+
+  # Why the setting is changing (owner's rules, 2026-10-09):
+  #   - a pool party on now or within 2 days, unless the plan is cooling: "Get ready for your pool party."
+  #   - heating the water because colder weather is coming: "Colder weather coming."
+  #   - cooling it because warmer weather is coming: "Warmer weather coming."
+  # A weather line only appears when a coming day's average air is >5°F off today's (WeatherTrend)
+  # in the direction that explains the change; otherwise there's no headline.
+  def self.headline(pool, result)
+    rows = Array(result.details[:series]).map { |r| r.to_h.transform_keys(&:to_sym) }
+    water = result.details[:water_now]&.to_f
+    heating = water && result.target > water + 0.5
+    cooling = water && result.target < water - 0.5
+    return "Get ready for your pool party." if !cooling && rows.first(PARTY_HEADS_UP).any? { |r| r[:party].to_s == "party" }
+
+    trend = WeatherTrend.for(rows, zone: pool.zone)
+    if heating && trend == :cooler then "Colder weather coming."
+    elsif cooling && trend == :warmer then "Warmer weather coming."
+    end
   end
 
   def self.pump_line(pool, result)

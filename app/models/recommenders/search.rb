@@ -38,8 +38,11 @@ module Recommenders
 
     # Running the pump around the clock is only on the table while it's needed (see
     # boost_needed?): the owner's rule is "only when more than the threshold short".
+    # The cover only comes off to cool: with the setting at or above the water, the heater
+    # would be fighting the open pool (owner, 2026-10-09).
     def actions_for(stage, temp)
-      boost_needed?(stage, temp) ? actions + boost_actions : actions
+      options = boost_needed?(stage, temp) ? actions + boost_actions : actions
+      has_cover ? options.select { |d| d.cover_on || d.setpoint < temp } : options
     end
 
     def setpoints
