@@ -55,7 +55,7 @@ group :development do
 end
 
 # SMS notifications
-gem "twilio-ruby", "~> 7.0"
+gem "twilio-ruby", "~> 7.12"
 
 group :development, :test do
   gem "rspec-rails", "~> 8.0"
